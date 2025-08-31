@@ -307,45 +307,44 @@ class DatabaseManager:
     
     def get_system_stats(self) -> Dict[str, Any]:
         """Get system statistics."""
-        conn = self.get_connection()
-        
-        stats = {}
-        
-        # Basic counts
-        cursor = conn.execute("SELECT COUNT(*) FROM members WHERE is_active = TRUE")
-        stats['total_members'] = cursor.fetchone()[0]
-        
-        cursor = conn.execute("SELECT COUNT(*) FROM members WHERE is_duplicate = TRUE")
-        stats['duplicates'] = cursor.fetchone()[0]
-        
-        cursor = conn.execute("""
-            SELECT COUNT(*) FROM members 
-            WHERE is_active = TRUE AND primary_email IS NOT NULL
-        """)
-        stats['members_with_email'] = cursor.fetchone()[0]
-        
-        cursor = conn.execute("""
-            SELECT COUNT(*) FROM members 
-            WHERE is_active = TRUE AND current_profession IS NOT NULL
-        """)
-        stats['members_with_profession'] = cursor.fetchone()[0]
-        
-        # Data quality
-        cursor = conn.execute("""
-            SELECT AVG(confidence_score) FROM members 
-            WHERE is_active = TRUE AND confidence_score IS NOT NULL
-        """)
-        result = cursor.fetchone()[0]
-        stats['avg_confidence'] = round(result, 2) if result else 0
-        
-        # Recent activity
-        cursor = conn.execute("""
-            SELECT COUNT(*) FROM member_change_history 
-            WHERE changed_at >= datetime('now', '-7 days')
-        """)
-        stats['changes_last_week'] = cursor.fetchone()[0]
-        
-        return stats
+        with self.get_connection() as conn:
+            stats = {}
+            
+            # Basic counts
+            cursor = conn.execute("SELECT COUNT(*) FROM members WHERE is_active = TRUE")
+            stats['total_members'] = cursor.fetchone()[0]
+            
+            cursor = conn.execute("SELECT COUNT(*) FROM members WHERE is_duplicate = TRUE")
+            stats['duplicates'] = cursor.fetchone()[0]
+            
+            cursor = conn.execute("""
+                SELECT COUNT(*) FROM members 
+                WHERE is_active = TRUE AND primary_email IS NOT NULL
+            """)
+            stats['members_with_email'] = cursor.fetchone()[0]
+            
+            cursor = conn.execute("""
+                SELECT COUNT(*) FROM members 
+                WHERE is_active = TRUE AND current_profession IS NOT NULL
+            """)
+            stats['members_with_profession'] = cursor.fetchone()[0]
+            
+            # Data quality
+            cursor = conn.execute("""
+                SELECT AVG(confidence_score) FROM members 
+                WHERE is_active = TRUE AND confidence_score IS NOT NULL
+            """)
+            result = cursor.fetchone()[0]
+            stats['avg_confidence'] = round(result, 2) if result else 0
+            
+            # Recent activity
+            cursor = conn.execute("""
+                SELECT COUNT(*) FROM member_change_history 
+                WHERE changed_at >= datetime('now', '-7 days')
+            """)
+            stats['changes_last_week'] = cursor.fetchone()[0]
+            
+            return stats
     
     def get_import_stats(self) -> List[Dict[str, Any]]:
         """Get import batch statistics."""
@@ -362,25 +361,24 @@ class DatabaseManager:
     
     def get_data_quality_summary(self) -> Dict[str, Any]:
         """Get data quality summary."""
-        conn = self.get_connection()
-        
-        # This would typically use the data_quality_summary view from schema
-        sql = """
-        SELECT 
-            COUNT(*) as total_records,
-            COUNT(CASE WHEN primary_email IS NOT NULL THEN 1 END) as with_email,
-            COUNT(CASE WHEN mobile_phone IS NOT NULL THEN 1 END) as with_mobile,
-            COUNT(CASE WHEN current_profession IS NOT NULL THEN 1 END) as with_profession,
-            COUNT(CASE WHEN is_active = TRUE THEN 1 END) as active_members,
-            COUNT(CASE WHEN is_duplicate = TRUE THEN 1 END) as duplicates,
-            AVG(confidence_score) as avg_confidence,
-            AVG(data_completeness_score) as avg_completeness
-        FROM members
-        """
-        
-        cursor = conn.execute(sql)
-        row = cursor.fetchone()
-        return dict(row) if row else {}
+        with self.get_connection() as conn:
+            # This would typically use the data_quality_summary view from schema
+            sql = """
+            SELECT 
+                COUNT(*) as total_records,
+                COUNT(CASE WHEN primary_email IS NOT NULL THEN 1 END) as with_email,
+                COUNT(CASE WHEN mobile_phone IS NOT NULL THEN 1 END) as with_mobile,
+                COUNT(CASE WHEN current_profession IS NOT NULL THEN 1 END) as with_profession,
+                COUNT(CASE WHEN is_active = TRUE THEN 1 END) as active_members,
+                COUNT(CASE WHEN is_duplicate = TRUE THEN 1 END) as duplicates,
+                AVG(confidence_score) as avg_confidence,
+                AVG(data_completeness_score) as avg_completeness
+            FROM members
+            """
+            
+            cursor = conn.execute(sql)
+            row = cursor.fetchone()
+            return dict(row) if row else {}
     
     def get_potential_duplicates(self) -> List[Dict[str, Any]]:
         """Get potential duplicates for manual review."""
