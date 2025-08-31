@@ -136,6 +136,16 @@ def smart_search(query, include_inactive=False):
         # Try enhanced natural language search first
         if hasattr(st.session_state.query_processor, 'search_natural_language'):
             st.info("🔍 DEBUG: Using natural language search")
+            
+            # Test database connection within QueryProcessor context
+            try:
+                test_db_results = st.session_state.db_manager.search_members({'name': query})
+                st.info(f"🔍 DEBUG: Direct db_manager search returned {len(test_db_results)} results")
+                if test_db_results:
+                    st.info(f"🔍 DEBUG: First result name: {test_db_results[0].get('full_name', 'Unknown')}")
+            except Exception as e:
+                st.error(f"🔍 DEBUG: Direct database search failed: {e}")
+            
             results = st.session_state.query_processor.search_natural_language(query)
             st.info(f"🔍 DEBUG: Natural language search returned {len(results) if results else 0} results")
         else:
@@ -1463,8 +1473,15 @@ def admin_interface():
 
 def main():
     """Main application entry point."""
+    st.info("🔍 DEBUG: main() function called")
+    
     # Check database first
-    if not check_database():
+    st.info("🔍 DEBUG: About to check database")
+    db_check_result = check_database()
+    st.info(f"🔍 DEBUG: check_database() returned: {db_check_result}")
+    
+    if not db_check_result:
+        st.error("🔍 DEBUG: Database check failed - exiting main()")
         return
     
     # Sidebar navigation
