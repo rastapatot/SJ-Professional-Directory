@@ -7,7 +7,7 @@ flask==2.3.3
 flask-cors==4.0.0
 
 # Database
-sqlite3  # Built into Python
+# sqlite3 is built into Python - no need to install
 
 # Excel/Office File Processing
 pandas==2.1.1
