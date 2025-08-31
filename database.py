@@ -112,86 +112,83 @@ class DatabaseManager:
         if not updates:
             return True
         
-        conn = self.get_connection()
-        
-        # Build SET clause
-        set_clauses = [f"{col} = ?" for col in updates.keys()]
-        values = list(updates.values()) + [member_id]
-        
-        sql = f"""
-        UPDATE members 
-        SET {', '.join(set_clauses)}, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-        """
-        
-        try:
-            cursor = conn.execute(sql, values)
-            conn.commit()
-            logger.debug(f"Updated member {member_id}: {cursor.rowcount} rows affected")
-            return cursor.rowcount > 0
-        except Exception as e:
-            conn.rollback()
-            logger.error(f"Error updating member {member_id}: {e}")
-            raise
+        with self.get_connection() as conn:
+            try:
+                # Build SET clause
+                set_clauses = [f"{col} = ?" for col in updates.keys()]
+                values = list(updates.values()) + [member_id]
+                
+                sql = f"""
+                UPDATE members 
+                SET {', '.join(set_clauses)}, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """
+                
+                cursor = conn.execute(sql, values)
+                conn.commit()
+                logger.debug(f"Updated member {member_id}: {cursor.rowcount} rows affected")
+                return cursor.rowcount > 0
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"Error updating member {member_id}: {e}")
+                raise
     
     def get_member_by_id(self, member_id: int) -> Optional[Dict[str, Any]]:
         """Get member by ID."""
-        conn = self.get_connection()
-        
-        sql = "SELECT * FROM members WHERE id = ? AND is_active = TRUE"
-        cursor = conn.execute(sql, (member_id,))
-        row = cursor.fetchone()
-        
-        return dict(row) if row else None
+        with self.get_connection() as conn:
+            sql = "SELECT * FROM members WHERE id = ? AND is_active = TRUE"
+            cursor = conn.execute(sql, (member_id,))
+            row = cursor.fetchone()
+            
+            return dict(row) if row else None
     
     def search_members(self, query_params: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Search members with various filters."""
-        conn = self.get_connection()
-        
-        where_clauses = ["is_active = TRUE", "is_duplicate = FALSE"]
-        params = []
-        
-        # Build dynamic WHERE clause
-        if query_params.get('name'):
-            where_clauses.append("full_name_normalized LIKE ?")
-            params.append(f"%{query_params['name'].lower()}%")
-        
-        if query_params.get('profession'):
-            where_clauses.append("""
-                (current_profession LIKE ? 
-                 OR current_profession_normalized LIKE ? 
-                 OR inferred_profession LIKE ?)
-            """)
-            prof = f"%{query_params['profession'].lower()}%"
-            params.extend([prof, prof, prof])
-        
-        if query_params.get('location'):
-            where_clauses.append("""
-                (home_address_full LIKE ?
-                 OR office_address_full LIKE ?
-                 OR home_address_city_normalized LIKE ? 
-                 OR office_address_city_normalized LIKE ?)
-            """)
-            loc = f"%{query_params['location'].lower()}%"
-            params.extend([loc, loc, loc, loc])
-        
-        if query_params.get('batch'):
-            where_clauses.append("batch_normalized LIKE ?")
-            params.append(f"%{query_params['batch']}%")
-        
-        if query_params.get('chapter'):
-            where_clauses.append("school_chapter_normalized LIKE ?")
-            params.append(f"%{query_params['chapter'].lower()}%")
-        
-        sql = f"""
-        SELECT * FROM members 
-        WHERE {' AND '.join(where_clauses)}
-        ORDER BY confidence_score DESC, full_name
-        LIMIT 100
-        """
-        
-        cursor = conn.execute(sql, params)
-        return [dict(row) for row in cursor.fetchall()]
+        with self.get_connection() as conn:
+            where_clauses = ["is_active = TRUE", "is_duplicate = FALSE"]
+            params = []
+            
+            # Build dynamic WHERE clause
+            if query_params.get('name'):
+                where_clauses.append("full_name_normalized LIKE ?")
+                params.append(f"%{query_params['name'].lower()}%")
+            
+            if query_params.get('profession'):
+                where_clauses.append("""
+                    (current_profession LIKE ? 
+                     OR current_profession_normalized LIKE ? 
+                     OR inferred_profession LIKE ?)
+                """)
+                prof = f"%{query_params['profession'].lower()}%"
+                params.extend([prof, prof, prof])
+            
+            if query_params.get('location'):
+                where_clauses.append("""
+                    (home_address_full LIKE ?
+                     OR office_address_full LIKE ?
+                     OR home_address_city_normalized LIKE ? 
+                     OR office_address_city_normalized LIKE ?)
+                """)
+                loc = f"%{query_params['location'].lower()}%"
+                params.extend([loc, loc, loc, loc])
+            
+            if query_params.get('batch'):
+                where_clauses.append("batch_normalized LIKE ?")
+                params.append(f"%{query_params['batch']}%")
+            
+            if query_params.get('chapter'):
+                where_clauses.append("school_chapter_normalized LIKE ?")
+                params.append(f"%{query_params['chapter'].lower()}%")
+            
+            sql = f"""
+            SELECT * FROM members 
+            WHERE {' AND '.join(where_clauses)}
+            ORDER BY confidence_score DESC, full_name
+            LIMIT 100
+            """
+            
+            cursor = conn.execute(sql, params)
+            return [dict(row) for row in cursor.fetchall()]
     
     def log_change(self, member_id: int, field_name: str, old_value: Any, 
                    new_value: Any, change_type: str, change_reason: str,
