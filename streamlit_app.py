@@ -109,16 +109,23 @@ def smart_search(query, include_inactive=False):
     results = []
     
     try:
+        # Debug info
+        st.info(f"🔍 DEBUG: Searching for '{query}'")
+        
         # Try enhanced natural language search first
         if hasattr(st.session_state.query_processor, 'search_natural_language'):
+            st.info("🔍 DEBUG: Using natural language search")
             results = st.session_state.query_processor.search_natural_language(query)
+            st.info(f"🔍 DEBUG: Natural language search returned {len(results) if results else 0} results")
         else:
-            # Fallback to basic search methods
+            st.info("🔍 DEBUG: Using fallback search methods")
             
             # Try as name search
             name_results = st.session_state.db_manager.search_members({'name': query})
+            st.info(f"🔍 DEBUG: Name search returned {len(name_results)} raw results")
             if name_results:
                 results = format_basic_results(name_results, 'name_search')
+                st.info(f"🔍 DEBUG: Formatted to {len(results)} results")
             
             # If no name results, try as profession
             if not results:
@@ -144,6 +151,8 @@ def smart_search(query, include_inactive=False):
     
     except Exception as e:
         st.error(f"Search processing error: {e}")
+        import traceback
+        st.error(f"Full traceback: {traceback.format_exc()}")
         results = []
     
     return results
