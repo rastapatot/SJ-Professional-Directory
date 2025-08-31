@@ -28,9 +28,14 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize session state
-if 'db_manager' not in st.session_state:
+# Initialize session state (force refresh database connection)
+if 'db_manager' not in st.session_state or st.sidebar.button("🔄 Refresh DB Connection"):
     st.session_state.db_manager = DatabaseManager(DATABASE_PATH)
+    if 'query_processor' in st.session_state:
+        del st.session_state.query_processor
+    if 'data_processor' in st.session_state:
+        del st.session_state.data_processor
+
 if 'query_processor' not in st.session_state:
     st.session_state.query_processor = QueryProcessor(st.session_state.db_manager)
 if 'data_processor' not in st.session_state:
@@ -930,10 +935,22 @@ def show_add_member_form():
             
             # Check if email already exists (only if email is provided)
             if new_email.strip():
-                existing_members = st.session_state.db_manager.search_members({'email': new_email})
+                # Debug: Show what we're searching for
+                st.info(f"🔍 Checking email: '{new_email.strip()}'")
+                
+                existing_members = st.session_state.db_manager.search_members({'email': new_email.strip()})
+                
+                # Debug: Show results
+                st.info(f"📊 Found {len(existing_members)} existing members with this email")
+                
                 if existing_members:
+                    # Debug: Show the conflicting member details
+                    conflicting_member = existing_members[0]
+                    st.warning(f"⚠️ Conflicting member details: ID={conflicting_member.get('id')}, Name='{conflicting_member.get('full_name')}', Email='{conflicting_member.get('primary_email')}'")
                     st.error(f"❌ Email {new_email} already exists for member: {existing_members[0]['full_name']}")
                     return
+                else:
+                    st.success(f"✅ Email '{new_email.strip()}' is available")
             
             try:
                 # Prepare member data
