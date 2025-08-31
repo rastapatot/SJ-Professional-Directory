@@ -299,12 +299,10 @@ def main_search_interface():
             st.rerun()
     
     if query:
-        st.info(f"🔍 Searching for: '{query}'")
         with st.spinner("Searching..."):
             try:
                 # Smart search - try different methods based on query
                 results = smart_search(query)
-                st.info(f"🔍 Found {len(results) if results else 0} results")
                 display_search_results(results, query)
                 
             except Exception as e:
@@ -752,9 +750,7 @@ def show_member_editor(member):
     # Show member ID and basic info
     col1, col2 = st.columns([1, 3])
     with col1:
-        st.info(f"**Member ID**: {member['id']}")
-        st.info(f"**Created**: {member.get('created_at', 'Unknown')[:10]}")
-        st.info(f"**Confidence**: {member.get('confidence_score', 0):.1%}")
+        # Debug info removed for cleaner interface
     
     with col2:
         # Edit form
@@ -987,14 +983,14 @@ def show_member_editor(member):
                                         'UPDATE', 'admin_manual_edit'
                                     )
                             
-                            st.info("🔄 Refresh the page to see updated information")
+                            # Auto-refresh removed for cleaner interface
                         else:
                             st.error("❌ Failed to update member")
                             
                     except Exception as e:
                         st.error(f"❌ Error updating member: {e}")
                 else:
-                    st.info("ℹ️ No changes detected")
+                    st.success("✅ No changes needed")
     
     # Show change history
     if 'view_history' in locals() and view_history:
@@ -1246,7 +1242,7 @@ def show_add_member_form():
                         'INSERT', 'admin_manual_add'
                     )
                     
-                    st.info("🔄 The new member is now available for searches!")
+                    st.success("✅ New member added successfully!")
                     
                     # Show success details
                     with st.expander("📋 View Added Member Details"):
@@ -1265,7 +1261,7 @@ def show_add_member_form():
                 st.exception(e)
         
         if clear_form:
-            st.info("🗑️ Form cleared. Refresh the page to see empty form.")
+            st.success("🗑️ Form cleared successfully!")
 
 def sidebar_stats():
     """Display system statistics in sidebar."""
@@ -1345,7 +1341,7 @@ def show_all_members_interface():
         start_idx = (st.session_state.admin_page - 1) * st.session_state.admin_per_page + 1
         end_idx = min(st.session_state.admin_page * st.session_state.admin_per_page, total_count)
         
-        st.info(f"Showing {start_idx}-{end_idx} of {total_count} members (Page {st.session_state.admin_page} of {total_pages})")
+        st.caption(f"Showing {start_idx}-{end_idx} of {total_count} members (Page {st.session_state.admin_page} of {total_pages})")
         
         # Members table
         for idx, member in enumerate(members):
@@ -1523,7 +1519,7 @@ def admin_interface():
         
         if RAW_FILES_DIR.exists():
             files_count = len(list(RAW_FILES_DIR.rglob("*.*")))
-            st.info(f"Found {files_count} files in Raw_Files directory")
+            st.success(f"📁 Found {files_count} files ready for import")
             
             if st.button("🚀 Import All Files"):
                 with st.spinner("Importing data..."):
@@ -1552,7 +1548,7 @@ def admin_interface():
         )
         
         if uploaded_files:
-            st.info(f"Uploaded {len(uploaded_files)} files")
+            st.success(f"📤 Uploaded {len(uploaded_files)} files successfully")
             # TODO: Implement file processing
     
     # Data quality section
@@ -1721,17 +1717,10 @@ def show_about_page():
     # System info
     st.header("🛠️ System Information")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        st.info(f"**Database**: {DATABASE_PATH}")
-        st.info(f"**Data Source**: {RAW_FILES_DIR}")
-    
-    with col2:
-        if DATABASE_PATH.exists():
-            size_mb = DATABASE_PATH.stat().st_size / (1024 * 1024)
-            st.info(f"**Database Size**: {size_mb:.1f} MB")
-        
-        st.info(f"**Last Updated**: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    # System information removed for cleaner interface
+    if DATABASE_PATH.exists():
+        size_mb = DATABASE_PATH.stat().st_size / (1024 * 1024)
+        st.caption(f"Database: {size_mb:.1f} MB | Last Updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
 
 if __name__ == "__main__":
     main()
