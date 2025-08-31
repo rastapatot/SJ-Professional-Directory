@@ -2,7 +2,7 @@
 # ============================================================================
 
 # Web Framework
-streamlit==1.28.2
+streamlit>=1.28.0
 flask==2.3.3
 flask-cors==4.0.0
 
@@ -10,10 +10,10 @@ flask-cors==4.0.0
 # sqlite3 is built into Python - no need to install
 
 # Excel/Office File Processing
-pandas==2.1.1
+pandas>=2.2.0
 xlrd==2.0.1          # For old .xls files
-openpyxl==3.1.2      # For .xlsx files
-python-docx==0.8.11  # For .docx files
+openpyxl>=3.1.0      # For .xlsx files
+python-docx>=0.8.0   # For .docx files
 
 # Access Database (.mdb) Support
 # Note: These may need special installation on different platforms
@@ -26,7 +26,7 @@ fuzzywuzzy==0.18.0
 python-levenshtein==0.21.1  # For fuzzy string matching
 
 # Data Processing
-numpy==1.25.2
+numpy>=1.26.0
 dateparser==1.1.8    # For flexible date parsing
 phonenumbers==8.13.19  # For phone number normalization
 
