@@ -750,7 +750,7 @@ def show_member_editor(member):
     # Show member ID and basic info
     col1, col2 = st.columns([1, 3])
     with col1:
-        # Debug info removed for cleaner interface
+        st.write("")  # Empty column for spacing
     
     with col2:
         # Edit form
