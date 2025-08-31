@@ -7,6 +7,7 @@ from pathlib import Path
 from datetime import datetime, date
 from typing import Dict, List, Optional, Any
 import json
+from contextlib import contextmanager
 
 from config import SCHEMA_PATH
 
@@ -19,13 +20,21 @@ class DatabaseManager:
         self.db_path = db_path
         self.connection = None
     
-    def get_connection(self) -> sqlite3.Connection:
-        """Get database connection with proper settings."""
-        if self.connection is None:
-            self.connection = sqlite3.connect(str(self.db_path))
-            self.connection.row_factory = sqlite3.Row  # Enable dict-like access
-            self.connection.execute("PRAGMA foreign_keys = ON")  # Enable foreign keys
-        return self.connection
+    @contextmanager
+    def get_connection(self):
+        """Get database connection with proper settings and automatic cleanup."""
+        connection = sqlite3.connect(
+            str(self.db_path),
+            check_same_thread=False,  # Allow use across threads
+            timeout=30.0  # 30 second timeout
+        )
+        connection.row_factory = sqlite3.Row  # Enable dict-like access
+        connection.execute("PRAGMA foreign_keys = ON")  # Enable foreign keys
+        
+        try:
+            yield connection
+        finally:
+            connection.close()
     
     def close_connection(self):
         """Close database connection."""
@@ -41,63 +50,62 @@ class DatabaseManager:
         with open(SCHEMA_PATH, 'r') as f:
             schema_sql = f.read()
         
-        conn = self.get_connection()
-        try:
-            # Execute schema using executescript for multiple statements
-            conn.executescript(schema_sql)
-            conn.commit()
-            logger.info("Database schema created successfully")
-        except Exception as e:
-            conn.rollback()
-            logger.error(f"Error creating database schema: {e}")
-            # Try alternative method - split by semicolon
+        with self.get_connection() as conn:
             try:
-                logger.info("Trying alternative method...")
-                statements = [s.strip() for s in schema_sql.split(';') if s.strip()]
-                for statement in statements:
-                    if statement and not statement.startswith('--'):
-                        conn.execute(statement + ';')
+                # Execute schema using executescript for multiple statements
+                conn.executescript(schema_sql)
                 conn.commit()
-                logger.info("Database schema created successfully (alternative method)")
-            except Exception as e2:
+                logger.info("Database schema created successfully")
+            except Exception as e:
                 conn.rollback()
-                logger.error(f"Alternative method also failed: {e2}")
-                raise e
+                logger.error(f"Error creating database schema: {e}")
+                # Try alternative method - split by semicolon
+                try:
+                    logger.info("Trying alternative method...")
+                    statements = [s.strip() for s in schema_sql.split(';') if s.strip()]
+                    for statement in statements:
+                        if statement and not statement.startswith('--'):
+                            conn.execute(statement + ';')
+                    conn.commit()
+                    logger.info("Database schema created successfully (alternative method)")
+                except Exception as e2:
+                    conn.rollback()
+                    logger.error(f"Alternative method also failed: {e2}")
+                    raise e
     
     def test_connection(self) -> bool:
         """Test database connection."""
         try:
-            conn = self.get_connection()
-            conn.execute("SELECT 1")
-            return True
+            with self.get_connection() as conn:
+                conn.execute("SELECT 1")
+                return True
         except Exception as e:
             logger.error(f"Database connection test failed: {e}")
             return False
     
     def insert_member(self, member_data: Dict[str, Any]) -> int:
         """Insert a new member record."""
-        conn = self.get_connection()
-        
-        # Prepare insert statement
-        columns = list(member_data.keys())
-        placeholders = ['?' for _ in columns]
-        values = list(member_data.values())
-        
-        sql = f"""
-        INSERT INTO members ({', '.join(columns)})
-        VALUES ({', '.join(placeholders)})
-        """
-        
-        try:
-            cursor = conn.execute(sql, values)
-            member_id = cursor.lastrowid
-            conn.commit()
-            logger.debug(f"Inserted member with ID: {member_id}")
-            return member_id
-        except Exception as e:
-            conn.rollback()
-            logger.error(f"Error inserting member: {e}")
-            raise
+        with self.get_connection() as conn:
+            try:
+                # Prepare insert statement
+                columns = list(member_data.keys())
+                placeholders = ['?' for _ in columns]
+                values = list(member_data.values())
+                
+                sql = f"""
+                INSERT INTO members ({', '.join(columns)})
+                VALUES ({', '.join(placeholders)})
+                """
+                
+                cursor = conn.execute(sql, values)
+                member_id = cursor.lastrowid
+                conn.commit()
+                logger.debug(f"Inserted member with ID: {member_id}")
+                return member_id
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"Error inserting member: {e}")
+                raise
     
     def update_member(self, member_id: int, updates: Dict[str, Any]) -> bool:
         """Update an existing member record."""
