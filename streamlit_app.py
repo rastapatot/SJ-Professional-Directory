@@ -94,14 +94,18 @@ def main_search_interface():
             st.rerun()
     
     if query:
+        st.info(f"🔍 Searching for: '{query}'")
         with st.spinner("Searching..."):
             try:
                 # Smart search - try different methods based on query
                 results = smart_search(query, include_inactive)
+                st.info(f"🔍 Found {len(results) if results else 0} results")
                 display_search_results(results, query)
                 
             except Exception as e:
                 st.error(f"Search error: {e}")
+                import traceback
+                st.error(f"Traceback: {traceback.format_exc()}")
                 st.info("💡 Try a different search term or check your spelling.")
 
 def smart_search(query, include_inactive=False):
@@ -109,11 +113,26 @@ def smart_search(query, include_inactive=False):
     results = []
     
     try:
+        st.info("🔍 Starting smart_search")
+        
+        # Check session state
+        if 'query_processor' not in st.session_state:
+            st.error("🔍 ERROR: query_processor not in session state")
+            return []
+        
+        if 'db_manager' not in st.session_state:
+            st.error("🔍 ERROR: db_manager not in session state") 
+            return []
+            
+        st.info("🔍 Session state OK")
+        
         # Try enhanced natural language search first
         if hasattr(st.session_state.query_processor, 'search_natural_language'):
+            st.info("🔍 Using natural language search")
             results = st.session_state.query_processor.search_natural_language(query)
+            st.info(f"🔍 NLP search returned {len(results) if results else 0} results")
         else:
-            # Fallback to basic search methods
+            st.info("🔍 Using fallback search methods")
             
             # Try as name search
             name_results = st.session_state.db_manager.search_members({'name': query})
@@ -144,6 +163,8 @@ def smart_search(query, include_inactive=False):
     
     except Exception as e:
         st.error(f"Search processing error: {e}")
+        import traceback
+        st.error(f"Full traceback: {traceback.format_exc()}")
         results = []
     
     return results
