@@ -94,14 +94,32 @@ def main_search_interface():
             st.rerun()
     
     if query:
+        st.info(f"🔍 DEBUG: Query entered: '{query}'")
+        st.info(f"🔍 DEBUG: Include inactive: {include_inactive}")
+        
+        # Check session state
+        if 'db_manager' not in st.session_state:
+            st.error("🔍 DEBUG: db_manager not in session state!")
+        else:
+            st.info("🔍 DEBUG: db_manager found in session state")
+            
+        if 'query_processor' not in st.session_state:
+            st.error("🔍 DEBUG: query_processor not in session state!")
+        else:
+            st.info("🔍 DEBUG: query_processor found in session state")
+        
         with st.spinner("Searching..."):
             try:
+                st.info("🔍 DEBUG: About to call smart_search")
                 # Smart search - try different methods based on query
                 results = smart_search(query, include_inactive)
+                st.info(f"🔍 DEBUG: smart_search returned {len(results) if results else 0} results")
                 display_search_results(results, query)
                 
             except Exception as e:
                 st.error(f"Search error: {e}")
+                import traceback
+                st.error(f"Full traceback: {traceback.format_exc()}")
                 st.info("💡 Try a different search term or check your spelling.")
 
 def smart_search(query, include_inactive=False):
