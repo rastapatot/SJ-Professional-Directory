@@ -101,8 +101,8 @@ class QueryProcessor:
         
         # Interest-based queries
         interest_patterns = [
-            r'(?:who|anyone) (?:likes?|enjoys?|plays?) (.+)',
-            r'(?:find|show) (?:me )?(?:people|members) (?:who )?(?:like|enjoy|play) (.+)',
+            r'(?:who|anyone) (?:likes?|enjoys?|plays?|rides?|does?) (.+)',
+            r'(?:find|show) (?:me )?(?:people|members) (?:who )?(?:like|enjoy|play|ride|do) (.+)',
             r'(?:who|anyone) (?:can help|knows about|has experience with) (?:me )?(?:with |buy |sell |find )?(.+)',
             r'(?:need|want) to (?:buy|sell|find|get) (.+)',
             r'(?:interested in|into) (.+)',
