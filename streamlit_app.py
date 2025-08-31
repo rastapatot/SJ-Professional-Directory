@@ -810,7 +810,7 @@ def show_member_history(member_id):
 def show_add_member_form():
     """Show form to add new member."""
     st.subheader("➕ Add New Member")
-    st.write("Fill in the information for the new member. Required fields are marked with *")
+    st.write("Fill in the information for the new member. Required fields are marked with * (Name, Mobile Phone, and Home Address are required)")
     
     with st.form("add_new_member"):
         # Personal Information
@@ -821,12 +821,14 @@ def show_add_member_form():
             new_full_name = st.text_input("Full Name *", placeholder="Juan Dela Cruz")
             new_nickname = st.text_input("Nickname", placeholder="Johnny")
             new_batch = st.text_input("Batch", placeholder="95-S")
-            new_chapter = st.selectbox("Chapter", [
-                "", "UP Diliman", "UP Los Baños", "UP Cebu", "UP Iloilo", "UP Visayas",
+            chapter_selection = st.selectbox("Chapter", [
+                "", "UP Diliman", "UP Los Baños", "UP Cebu", "UP Iloilo", "UP Visayas", "UP Baguio",
                 "UST", "FEU", "UE", "Silliman", "Lyceum Dagupan", "WMSU", "WVSU", "Fatima", "Other"
             ])
-            if new_chapter == "Other":
+            if chapter_selection == "Other":
                 new_chapter = st.text_input("Specify Chapter", placeholder="Enter chapter name")
+            else:
+                new_chapter = chapter_selection
         
         with col2:
             new_course = st.text_input("Course", placeholder="Bachelor of Laws")
@@ -840,9 +842,9 @@ def show_add_member_form():
         col3, col4 = st.columns(2)
         
         with col3:
-            new_email = st.text_input("Primary Email *", placeholder="juan.delacruz@email.com")
+            new_email = st.text_input("Primary Email", placeholder="juan.delacruz@email.com")
             new_secondary_email = st.text_input("Secondary Email", placeholder="johnny@company.com")
-            new_mobile = st.text_input("Mobile Phone", placeholder="0917-123-4567")
+            new_mobile = st.text_input("Mobile Phone *", placeholder="0917-123-4567")
         
         with col4:
             new_home_phone = st.text_input("Home Phone", placeholder="02-123-4567")
@@ -892,7 +894,7 @@ def show_add_member_form():
         col7, col8 = st.columns(2)
         
         with col7:
-            new_home_address = st.text_area("Home Address", placeholder="123 Main St, Makati City", height=100)
+            new_home_address = st.text_area("Home Address *", placeholder="123 Main St, Makati City", height=100)
             new_provincial_address = st.text_area("Provincial Address", placeholder="456 Rural Rd, Batangas", height=100)
         
         with col8:
@@ -913,20 +915,25 @@ def show_add_member_form():
             clear_form = st.form_submit_button("🗑️ Clear Form")
         
         if submit_new_member:
-            # Validation
+            # Validation - Name, Mobile, and Address are required
             if not new_full_name.strip():
                 st.error("❌ Full Name is required!")
                 return
             
-            if not new_email.strip():
-                st.error("❌ Primary Email is required!")
+            if not new_mobile.strip():
+                st.error("❌ Mobile Phone is required!")
                 return
             
-            # Check if email already exists
-            existing_members = st.session_state.db_manager.search_members({'email': new_email})
-            if existing_members:
-                st.error(f"❌ Email {new_email} already exists for member: {existing_members[0]['full_name']}")
+            if not new_home_address.strip():
+                st.error("❌ Home Address is required!")
                 return
+            
+            # Check if email already exists (only if email is provided)
+            if new_email.strip():
+                existing_members = st.session_state.db_manager.search_members({'email': new_email})
+                if existing_members:
+                    st.error(f"❌ Email {new_email} already exists for member: {existing_members[0]['full_name']}")
+                    return
             
             try:
                 # Prepare member data
@@ -934,7 +941,7 @@ def show_add_member_form():
                     'full_name': new_full_name.strip(),
                     'full_name_normalized': new_full_name.strip().lower(),
                     'nickname': new_nickname.strip() if new_nickname else None,
-                    'primary_email': new_email.strip(),
+                    'primary_email': new_email.strip() if new_email.strip() else None,
                     'secondary_email': new_secondary_email.strip() if new_secondary_email else None,
                     'mobile_phone': new_mobile.strip() if new_mobile else None,
                     'home_phone': new_home_phone.strip() if new_home_phone else None,
