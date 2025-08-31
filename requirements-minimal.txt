@@ -18,3 +18,4 @@ python-levenshtein>=0.20.0
 # Utility Libraries (essential only)
 dateparser>=1.1.0
 phonenumbers>=8.13.0
+chardet>=5.0.0
