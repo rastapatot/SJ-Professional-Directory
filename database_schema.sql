@@ -125,6 +125,20 @@ CREATE TABLE members (
     address_type_office TEXT,            -- "professional", "residential", "unknown"
     
     -- ========================================================================
+    -- PERSONAL INTERESTS & HOBBIES
+    -- ========================================================================
+    interests_hobbies TEXT,              -- JSON array or comma-separated interests
+    interests_hobbies_normalized TEXT,   -- normalized for search
+    sports_activities TEXT,              -- JSON array or comma-separated sports
+    sports_activities_normalized TEXT,   -- normalized for search
+    hobbies_collected_date DATE,
+    
+    -- Social/Community Involvement
+    volunteer_work TEXT,
+    community_involvement TEXT,
+    social_clubs TEXT,                   -- other clubs/organizations
+    
+    -- ========================================================================
     -- DATA PROVENANCE & VINTAGE
     -- ========================================================================
     original_data_collected_date DATE,   -- when source data was originally collected

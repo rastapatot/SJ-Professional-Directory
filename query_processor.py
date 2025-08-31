@@ -23,6 +23,406 @@ class QueryProcessor:
         self.location_patterns = self._build_location_patterns()
         self.service_patterns = self._build_service_patterns()
     
+    def search_natural_language(self, query: str) -> List[Dict[str, Any]]:
+        """Enhanced natural language search that handles conversational queries."""
+        logger.info(f"Processing natural language query: {query}")
+        
+        # Detect query type and intent
+        query_intent = self._detect_query_intent(query)
+        
+        # Route to appropriate search method
+        if query_intent['type'] == 'location_based':
+            return self._search_by_location(query, query_intent)
+        elif query_intent['type'] == 'professional_service':
+            return self.search_professional_services(query)
+        elif query_intent['type'] == 'interest_based':
+            return self._search_by_interest(query, query_intent)
+        elif query_intent['type'] == 'general_directory':
+            return self._search_general_directory(query, query_intent)
+        elif query_intent['type'] == 'batch_based':
+            return self._search_by_batch(query, query_intent)
+        elif query_intent['type'] == 'demographic':
+            return self._search_demographic(query, query_intent)
+        else:
+            # Fallback to directory search
+            return self.search_directory(query)
+    
+    def _detect_query_intent(self, query: str) -> Dict[str, Any]:
+        """Detect the intent and type of a natural language query."""
+        query_lower = query.lower()
+        
+        # Location-based queries
+        location_patterns = [
+            r'who (?:lives?|resides?|is) (?:in|at|from|near) (.+)',
+            r'(?:show|find|list|get) (?:me |all )?(?:people|members|everyone) (?:in|at|from|near) (.+)',
+            r'(?:anyone|somebody|someone) (?:in|at|from|near) (.+)',
+            r'members? (?:in|at|from|near) (.+)',
+            r'from (.+?)(?:\s|$)'
+        ]
+        
+        for pattern in location_patterns:
+            match = re.search(pattern, query_lower)
+            if match:
+                return {
+                    'type': 'location_based',
+                    'location': match.group(1).strip(),
+                    'original_query': query
+                }
+        
+        # Batch-based queries
+        batch_patterns = [
+            r'batch (\w+[-\s]?\w*)',
+            r'from (?:batch |the batch )?(\w+[-\s]?\w*)',
+            r'(?:show|find|list) (?:me )?(?:batch |the batch )?(\w+[-\s]?\w*)',
+        ]
+        
+        for pattern in batch_patterns:
+            match = re.search(pattern, query_lower)
+            if match:
+                return {
+                    'type': 'batch_based',
+                    'batch': match.group(1).strip(),
+                    'original_query': query
+                }
+        
+        # Professional service queries
+        profession_indicators = ['lawyer', 'doctor', 'engineer', 'need', 'looking for', 'find me a']
+        if any(indicator in query_lower for indicator in profession_indicators):
+            return {
+                'type': 'professional_service',
+                'original_query': query
+            }
+        
+        # Interest-based queries
+        interest_patterns = [
+            r'(?:who|anyone) (?:likes?|enjoys?|plays?) (.+)',
+            r'(?:find|show) (?:me )?(?:people|members) (?:who )?(?:like|enjoy|play) (.+)',
+            r'(?:interested in|into) (.+)',
+            r'hobbies? (?:include?|are?) (.+)',
+            r'sports? (.+)'
+        ]
+        
+        for pattern in interest_patterns:
+            match = re.search(pattern, query_lower)
+            if match:
+                return {
+                    'type': 'interest_based',
+                    'interest': match.group(1).strip(),
+                    'original_query': query
+                }
+        
+        # Demographic queries
+        demographic_patterns = [
+            r'how many (?:people|members)',
+            r'(?:count|total) (?:of )?(?:people|members)',
+            r'list (?:all|everyone)',
+            r'(?:show|get) (?:me )?(?:all|everyone|everybody)'
+        ]
+        
+        for pattern in demographic_patterns:
+            if re.search(pattern, query_lower):
+                return {
+                    'type': 'demographic',
+                    'original_query': query
+                }
+        
+        # General directory search (fallback)
+        return {
+            'type': 'general_directory',
+            'original_query': query
+        }
+    
+    def _search_by_location(self, query: str, query_intent: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Search for members by location."""
+        location = query_intent.get('location', '')
+        
+        # Build search parameters for location
+        search_params = {
+            'location': location
+        }
+        
+        # Execute search
+        results = self.db.search_members(search_params)
+        
+        # Format results with location context
+        formatted_results = []
+        for member in results:
+            formatted_result = {
+                'id': member['id'],
+                'name': member.get('full_name', 'N/A'),
+                'email': member.get('primary_email', 'N/A'),
+                'mobile': member.get('mobile_phone', 'N/A'),
+                'profession': member.get('current_profession', 'N/A'),
+                'company': member.get('current_company', 'N/A'),
+                'batch': member.get('batch_normalized', 'N/A'),
+                'chapter': member.get('school_chapter_normalized', 'N/A'),
+                'home_location': member.get('home_address_city_normalized', 'N/A'),
+                'work_location': member.get('office_address_city_normalized', 'N/A'),
+                'home_address': member.get('home_address_full', 'N/A'),
+                'work_address': member.get('office_address_full', 'N/A'),
+                'confidence_score': member.get('confidence_score', 0),
+                'match_reasons': self._generate_location_match_reasons(member, location),
+                'query_type': 'location_search'
+            }
+            formatted_results.append(formatted_result)
+        
+        return formatted_results
+    
+    def _search_by_batch(self, query: str, query_intent: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Search for members by batch."""
+        batch = query_intent.get('batch', '')
+        
+        search_params = {
+            'batch': batch
+        }
+        
+        results = self.db.search_members(search_params)
+        
+        formatted_results = []
+        for member in results:
+            formatted_result = {
+                'id': member['id'],
+                'name': member.get('full_name', 'N/A'),
+                'email': member.get('primary_email', 'N/A'),
+                'mobile': member.get('mobile_phone', 'N/A'),
+                'profession': member.get('current_profession', 'N/A'),
+                'company': member.get('current_company', 'N/A'),
+                'batch': member.get('batch_normalized', 'N/A'),
+                'chapter': member.get('school_chapter_normalized', 'N/A'),
+                'home_location': member.get('home_address_city_normalized', 'N/A'),
+                'work_location': member.get('office_address_city_normalized', 'N/A'),
+                'confidence_score': member.get('confidence_score', 0),
+                'match_reasons': [f"Member of batch {batch}"],
+                'query_type': 'batch_search'
+            }
+            formatted_results.append(formatted_result)
+        
+        return formatted_results
+    
+    def _search_by_interest(self, query: str, query_intent: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Search for members by interests/hobbies."""
+        interest = query_intent.get('interest', '')
+        
+        # Build search parameters for interests
+        search_params = {
+            'interests': interest
+        }
+        
+        # Execute search
+        results = self.db.search_members(search_params)
+        
+        # Format results with interest context
+        formatted_results = []
+        for member in results:
+            formatted_result = {
+                'id': member['id'],
+                'name': member.get('full_name', 'N/A'),
+                'email': member.get('primary_email', 'N/A'),
+                'mobile': member.get('mobile_phone', 'N/A'),
+                'profession': member.get('current_profession', 'N/A'),
+                'company': member.get('current_company', 'N/A'),
+                'batch': member.get('batch_normalized', 'N/A'),
+                'chapter': member.get('school_chapter_normalized', 'N/A'),
+                'home_location': member.get('home_address_city_normalized', 'N/A'),
+                'work_location': member.get('office_address_city_normalized', 'N/A'),
+                'interests': member.get('interests_hobbies', 'N/A'),
+                'sports': member.get('sports_activities', 'N/A'),
+                'confidence_score': member.get('confidence_score', 0),
+                'match_reasons': self._generate_interest_match_reasons(member, interest),
+                'query_type': 'interest_search'
+            }
+            formatted_results.append(formatted_result)
+        
+        return formatted_results
+    
+    def _generate_interest_match_reasons(self, member: Dict[str, Any], search_interest: str) -> List[str]:
+        """Generate reasons why a member matches an interest search."""
+        reasons = []
+        
+        interests = member.get('interests_hobbies', '').lower()
+        sports = member.get('sports_activities', '').lower()
+        search_interest_lower = search_interest.lower()
+        
+        if search_interest_lower in interests:
+            reasons.append(f"Listed interest: {search_interest}")
+        
+        if search_interest_lower in sports:
+            reasons.append(f"Plays sport: {search_interest}")
+        
+        # Use fuzzy matching to find similar interests
+        if interests:
+            for interest in interests.split(','):
+                interest = interest.strip()
+                if interest and fuzz.partial_ratio(search_interest_lower, interest) > 70:
+                    reasons.append(f"Similar interest: {interest}")
+        
+        if sports:
+            for sport in sports.split(','):
+                sport = sport.strip()
+                if sport and fuzz.partial_ratio(search_interest_lower, sport) > 70:
+                    reasons.append(f"Similar sport: {sport}")
+        
+        if not reasons:
+            reasons.append("Interest match found in member data")
+        
+        return reasons
+    
+    def _search_general_directory(self, query: str, query_intent: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """General directory search with enhanced parsing."""
+        # Parse multiple possible query components
+        query_lower = query.lower()
+        search_params = {}
+        
+        # Extract name
+        name_match = re.search(r'(?:named?|called) ([a-zA-Z\s]+)', query_lower)
+        if name_match:
+            search_params['name'] = name_match.group(1).strip()
+        
+        # Extract profession
+        profession = self._extract_profession(query_lower)
+        if profession:
+            search_params['profession'] = profession
+        
+        # Extract location
+        location = self._extract_location(query_lower)
+        if location:
+            search_params['location'] = location
+        
+        # If no specific parameters, use the whole query as a general search
+        if not search_params:
+            search_params['name'] = query
+        
+        results = self.db.search_members(search_params)
+        return self._format_directory_results(results, {'original_query': query})
+    
+    def _search_demographic(self, query: str, query_intent: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Handle demographic queries like 'how many people' or 'list everyone'."""
+        # For demographic queries, we usually want to show all active members
+        # with summary statistics
+        
+        search_params = {}  # Empty params will get all active members
+        results = self.db.search_members(search_params)
+        
+        # Add demographic summary
+        total_count = len(results)
+        location_breakdown = {}
+        profession_breakdown = {}
+        batch_breakdown = {}
+        
+        for member in results:
+            # Location breakdown
+            location = member.get('home_address_city_normalized', 'Unknown')
+            location_breakdown[location] = location_breakdown.get(location, 0) + 1
+            
+            # Profession breakdown
+            profession = member.get('current_profession', 'Unknown')
+            profession_breakdown[profession] = profession_breakdown.get(profession, 0) + 1
+            
+            # Batch breakdown
+            batch = member.get('batch_normalized', 'Unknown')
+            batch_breakdown[batch] = batch_breakdown.get(batch, 0) + 1
+        
+        # Add summary to first result or create summary result
+        if results:
+            results[0]['demographic_summary'] = {
+                'total_count': total_count,
+                'top_locations': sorted(location_breakdown.items(), key=lambda x: x[1], reverse=True)[:5],
+                'top_professions': sorted(profession_breakdown.items(), key=lambda x: x[1], reverse=True)[:5],
+                'top_batches': sorted(batch_breakdown.items(), key=lambda x: x[1], reverse=True)[:5]
+            }
+        
+        return self._format_directory_results(results, query_intent)
+    
+    def _generate_location_match_reasons(self, member: Dict[str, Any], search_location: str) -> List[str]:
+        """Generate reasons why a member matches a location search."""
+        reasons = []
+        
+        # Collect all member locations
+        member_locations = [
+            member.get('home_address_city_normalized', ''),
+            member.get('office_address_city_normalized', ''),
+            member.get('home_address_full', ''),
+            member.get('office_address_full', '')
+        ]
+        
+        # Use fuzzy matching to find location matches
+        location_matches = self._fuzzy_match_locations(search_location, member_locations)
+        reasons.extend(location_matches)
+        
+        # Add specific context
+        home_location = member.get('home_address_city_normalized', '')
+        work_location = member.get('office_address_city_normalized', '')
+        
+        if home_location and search_location.lower() in home_location.lower():
+            reasons.append(f"Lives in {home_location}")
+        
+        if work_location and search_location.lower() in work_location.lower():
+            reasons.append(f"Works in {work_location}")
+        
+        if not reasons:
+            reasons.append("Location match found in member data")
+        
+        return reasons[:3]  # Limit to top 3 reasons
+    
+    def _fuzzy_match_locations(self, search_location: str, member_locations: List[str]) -> List[str]:
+        """Use fuzzy matching to find location matches."""
+        matches = []
+        search_location_lower = search_location.lower()
+        
+        for location in member_locations:
+            if location:
+                location_lower = location.lower()
+                # Direct substring match
+                if search_location_lower in location_lower:
+                    matches.append(f"Exact match: {location}")
+                # Fuzzy match for similar spellings
+                elif fuzz.partial_ratio(search_location_lower, location_lower) > 80:
+                    matches.append(f"Similar location: {location}")
+                # Check if any word in the search matches any word in the location
+                elif any(fuzz.ratio(search_word, location_word) > 85 
+                        for search_word in search_location_lower.split()
+                        for location_word in location_lower.split()):
+                    matches.append(f"Partial match: {location}")
+        
+        return matches
+    
+    def _fuzzy_match_professions(self, search_profession: str, member_professions: List[str]) -> List[str]:
+        """Use fuzzy matching to find profession matches."""
+        matches = []
+        search_profession_lower = search_profession.lower()
+        
+        # Common profession synonyms
+        profession_synonyms = {
+            'doctor': ['physician', 'md', 'medical doctor', 'medic'],
+            'lawyer': ['attorney', 'legal counsel', 'advocate', 'solicitor'],
+            'engineer': ['engr', 'engineering', 'technical'],
+            'teacher': ['educator', 'professor', 'instructor', 'faculty'],
+            'nurse': ['rn', 'registered nurse', 'nursing'],
+            'architect': ['architectural', 'design'],
+            'accountant': ['cpa', 'accounting', 'bookkeeper'],
+            'manager': ['management', 'supervisor', 'director'],
+            'consultant': ['consulting', 'advisor', 'specialist']
+        }
+        
+        for profession in member_professions:
+            if profession:
+                profession_lower = profession.lower()
+                # Direct substring match
+                if search_profession_lower in profession_lower:
+                    matches.append(f"Exact match: {profession}")
+                # Fuzzy match for similar spellings
+                elif fuzz.partial_ratio(search_profession_lower, profession_lower) > 75:
+                    matches.append(f"Similar profession: {profession}")
+                # Check synonyms
+                else:
+                    for base_prof, synonyms in profession_synonyms.items():
+                        if (search_profession_lower == base_prof or search_profession_lower in synonyms) and \
+                           (base_prof in profession_lower or any(syn in profession_lower for syn in synonyms)):
+                            matches.append(f"Related profession: {profession}")
+                            break
+        
+        return matches
+
     def search_professional_services(self, query: str) -> List[Dict[str, Any]]:
         """Search for professional services based on natural language query."""
         logger.info(f"Processing professional services query: {query}")

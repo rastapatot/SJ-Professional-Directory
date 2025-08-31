@@ -22,6 +22,7 @@ from config import Config, DATABASE_PATH, RAW_FILES_DIR
 from database import DatabaseManager
 from data_processor import DataProcessor
 from query_processor import QueryProcessor
+from datetime import datetime
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -61,50 +62,74 @@ def main_search_interface():
     st.title("🏢 SJ Professional Directory")
     st.markdown("*Your intelligent fraternity directory - Ask in plain English!*")
     
-    # Search tabs
-    search_tab, directory_tab = st.tabs(["🔍 Professional Services", "📋 Member Directory"])
+    # Enhanced conversational search
+    st.header("💬 Ask Me Anything")
+    st.markdown("**Try asking**: *Who lives in Makati?*, *Show me everyone from batch 95-S*, *I need a lawyer in BGC*, *Who plays basketball?*, *Anyone interested in photography?*, *How many members do we have?*")
     
-    with search_tab:
-        st.header("Find Professional Help")
-        st.markdown("**Examples**: *I need a family lawyer in Bulacan*, *Do we have a cardiologist at Heart Center?*")
-        
-        # Search input
-        query = st.text_input(
-            "What kind of professional help do you need?",
-            placeholder="I need a lawyer in Makati...",
-            key="prof_search"
-        )
-        
-        # Search options
-        col1, col2 = st.columns([3, 1])
-        with col2:
-            urgency = st.selectbox("Urgency", ["Normal", "Urgent"], key="urgency")
-        
-        if query:
-            with st.spinner("Searching for professionals..."):
-                try:
-                    results = st.session_state.query_processor.search_professional_services(query)
-                    display_professional_results(results, query)
-                except Exception as e:
-                    st.error(f"Search error: {e}")
+    # Main search input
+    query = st.text_input(
+        "Ask your question in plain English:",
+        placeholder="Who lives in Quezon City? / I need a doctor / Who plays tennis? / Show me batch 95-S...",
+        key="natural_search",
+        help="Examples: 'Who lives in Makati', 'I need a lawyer', 'Who plays basketball', 'Anyone into photography', 'Show me batch 95-S'"
+    )
     
-    with directory_tab:
-        st.header("Member Directory Search")
-        st.markdown("Search by name, batch, chapter, or other criteria")
+    if query:
+        with st.spinner("Understanding your question..."):
+            try:
+                results = st.session_state.query_processor.search_natural_language(query)
+                display_enhanced_results(results, query)
+            except Exception as e:
+                st.error(f"Search error: {e}")
+                st.info("💡 Try rephrasing your question or use the detailed search below.")
+    
+    st.divider()
+    
+    # Detailed search tabs for advanced users
+    with st.expander("🔧 Advanced Search Options", expanded=False):
+        search_tab, directory_tab = st.tabs(["🔍 Professional Services", "📋 Member Directory"])
         
-        # Directory search form
-        with st.form("directory_search"):
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                name_search = st.text_input("Name", placeholder="Juan Dela Cruz")
-                batch_search = st.text_input("Batch", placeholder="95-S")
+        with search_tab:
+            st.subheader("Find Professional Help")
+            st.markdown("**Examples**: *I need a family lawyer in Bulacan*, *Do we have a cardiologist at Heart Center?*")
+            
+            # Search input
+            prof_query = st.text_input(
+                "What kind of professional help do you need?",
+                placeholder="I need a lawyer in Makati...",
+                key="prof_search"
+            )
+            
+            # Search options
+            col1, col2 = st.columns([3, 1])
             with col2:
-                chapter_search = st.text_input("Chapter", placeholder="UP Diliman")
-                profession_search = st.text_input("Profession", placeholder="Engineer")
-            with col3:
-                location_search = st.text_input("Location", placeholder="Makati")
-                
-            search_submitted = st.form_submit_button("🔍 Search Directory")
+                urgency = st.selectbox("Urgency", ["Normal", "Urgent"], key="urgency")
+            
+            if prof_query:
+                with st.spinner("Searching for professionals..."):
+                    try:
+                        results = st.session_state.query_processor.search_professional_services(prof_query)
+                        display_professional_results(results, prof_query)
+                    except Exception as e:
+                        st.error(f"Search error: {e}")
+        
+        with directory_tab:
+            st.subheader("Member Directory Search")
+            st.markdown("Search by name, batch, chapter, or other criteria")
+            
+            # Directory search form
+            with st.form("directory_search"):
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    name_search = st.text_input("Name", placeholder="Juan Dela Cruz")
+                    batch_search = st.text_input("Batch", placeholder="95-S")
+                with col2:
+                    chapter_search = st.text_input("Chapter", placeholder="UP Diliman")
+                    profession_search = st.text_input("Profession", placeholder="Engineer")
+                with col3:
+                    location_search = st.text_input("Location", placeholder="Makati")
+                    
+                search_submitted = st.form_submit_button("🔍 Search Directory")
         
         if search_submitted:
             search_params = {
@@ -127,6 +152,129 @@ def main_search_interface():
                         st.error(f"Search error: {e}")
             else:
                 st.warning("Please enter at least one search criteria.")
+
+def display_enhanced_results(results, query):
+    """Display enhanced search results with better formatting."""
+    if not results:
+        st.warning("No matches found for your query.")
+        st.info("💡 Try rephrasing your question or using different keywords.")
+        return
+    
+    # Check if this is a demographic summary query
+    if results and results[0].get('demographic_summary'):
+        summary = results[0]['demographic_summary']
+        st.success(f"Found {summary['total_count']} total members")
+        
+        # Show summary statistics
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.subheader("🏙️ Top Locations")
+            for location, count in summary['top_locations']:
+                if location != 'Unknown':
+                    st.write(f"• **{location}**: {count} members")
+        
+        with col2:
+            st.subheader("💼 Top Professions")
+            for profession, count in summary['top_professions']:
+                if profession != 'Unknown':
+                    st.write(f"• **{profession}**: {count} members")
+        
+        with col3:
+            st.subheader("🎓 Top Batches")
+            for batch, count in summary['top_batches']:
+                if batch != 'Unknown':
+                    st.write(f"• **{batch}**: {count} members")
+        
+        st.divider()
+        st.subheader("All Members")
+    
+    # Determine query type for appropriate display
+    query_type = results[0].get('query_type', 'general') if results else 'general'
+    
+    if query_type == 'location_search':
+        st.success(f"Found {len(results)} members in the specified location")
+    elif query_type == 'batch_search':
+        st.success(f"Found {len(results)} members from the specified batch")
+    else:
+        st.success(f"Found {len(results)} matches")
+    
+    # Display results
+    for i, result in enumerate(results):
+        # Create a more informative title
+        title_parts = []
+        if result.get('name'):
+            title_parts.append(f"👤 {result['name']}")
+        if result.get('profession') and result['profession'] != 'N/A':
+            title_parts.append(f"💼 {result['profession']}")
+        if result.get('home_location') and result['home_location'] != 'N/A':
+            title_parts.append(f"🏠 {result['home_location']}")
+        elif result.get('work_location') and result['work_location'] != 'N/A':
+            title_parts.append(f"🏢 {result['work_location']}")
+        
+        title = " | ".join(title_parts) if title_parts else f"Member {i+1}"
+        
+        with st.expander(title, expanded=i < 5):  # Show first 5 expanded
+            col1, col2 = st.columns([2, 1])
+            
+            with col1:
+                # Basic information
+                st.write(f"**👤 Name**: {result.get('name', 'N/A')}")
+                
+                if result.get('profession') and result['profession'] != 'N/A':
+                    st.write(f"**💼 Profession**: {result['profession']}")
+                
+                if result.get('company') and result['company'] != 'N/A':
+                    st.write(f"**🏢 Company**: {result['company']}")
+                
+                # Location information
+                if result.get('home_location') and result['home_location'] != 'N/A':
+                    st.write(f"**🏠 Home**: {result['home_location']}")
+                
+                if result.get('work_location') and result['work_location'] != 'N/A':
+                    st.write(f"**🏢 Work**: {result['work_location']}")
+                
+                # Academic information
+                if result.get('batch') and result['batch'] != 'N/A':
+                    st.write(f"**🎓 Batch**: {result['batch']}")
+                
+                if result.get('chapter') and result['chapter'] != 'N/A':
+                    st.write(f"**🏫 Chapter**: {result['chapter']}")
+                
+                # Show interests if this is an interest-based search
+                if result.get('query_type') == 'interest_search':
+                    if result.get('interests') and result['interests'] != 'N/A':
+                        st.write(f"**🎯 Interests**: {result['interests']}")
+                    if result.get('sports') and result['sports'] != 'N/A':
+                        st.write(f"**⚽ Sports**: {result['sports']}")
+                
+                # Match reasons
+                if result.get('match_reasons'):
+                    st.write("**✨ Why this match:**")
+                    for reason in result['match_reasons']:
+                        st.write(f"  • {reason}")
+            
+            with col2:
+                # Contact information
+                st.write("**📞 Contact Information**")
+                if result.get('email') and result['email'] != 'N/A':
+                    st.write(f"📧 {result['email']}")
+                if result.get('mobile') and result['mobile'] != 'N/A':
+                    st.write(f"📱 {result['mobile']}")
+                
+                # Confidence metrics
+                confidence = result.get('confidence_score', 0)
+                if confidence > 0:
+                    st.metric("Data Confidence", f"{confidence:.1%}")
+                
+                # Address details
+                if result.get('home_address') and result['home_address'] != 'N/A':
+                    with st.expander("🏠 Home Address"):
+                        st.write(result['home_address'])
+                
+                if result.get('work_address') and result['work_address'] != 'N/A':
+                    with st.expander("🏢 Work Address"):
+                        st.write(result['work_address'])
 
 def display_professional_results(results, query):
     """Display professional services search results."""
@@ -299,6 +447,70 @@ def show_member_editor(member):
             # Company information
             new_company = st.text_input("Company", value=member.get('current_company', '') or '')
             
+            # Professional Information
+            st.write("**💼 Professional Information**")
+            col_e, col_f = st.columns(2)
+            with col_e:
+                new_job_title = st.text_input("Job Title", value=member.get('job_title', '') or '')
+                new_linkedin = st.text_input("LinkedIn Profile", value=member.get('linkedin_profile', '') or '')
+            with col_f:
+                new_services_offered = st.text_area("Services Offered", value=member.get('services_offered', '') or '', height=60)
+                new_practice_areas = st.text_area("Practice Areas/Specializations", value=member.get('practice_areas', '') or '', height=60)
+            
+            # Personal Interests & Hobbies
+            st.write("**🎯 Interests & Hobbies**")
+            col_g, col_h = st.columns(2)
+            with col_g:
+                new_interests = st.text_area("Interests & Hobbies", 
+                                           value=member.get('interests_hobbies', '') or '', 
+                                           placeholder="Photography, cooking, reading, traveling...",
+                                           height=80)
+                new_volunteer_work = st.text_area("Volunteer Work", 
+                                                value=member.get('volunteer_work', '') or '',
+                                                placeholder="NGO work, community service...",
+                                                height=60)
+            with col_h:
+                new_sports = st.text_area("Sports & Activities", 
+                                        value=member.get('sports_activities', '') or '',
+                                        placeholder="Basketball, tennis, running, cycling...",
+                                        height=80)
+                new_social_clubs = st.text_area("Social Clubs/Organizations", 
+                                               value=member.get('social_clubs', '') or '',
+                                               placeholder="Rotary, Lions Club, Country Club...",
+                                               height=60)
+            
+            # Academic Information
+            st.write("**🎓 Academic Information**")
+            col_i, col_j = st.columns(2)
+            with col_i:
+                new_course = st.text_input("Course/Degree", value=member.get('course', '') or '')
+                new_positions_held = st.text_area("Fraternity Positions Held", 
+                                                value=member.get('positions_held', '') or '',
+                                                placeholder="President, VP, Secretary...",
+                                                height=60)
+            with col_j:
+                new_member_status = st.selectbox("Member Status", 
+                                                options=['active', 'alumni', 'inactive', 'deceased'],
+                                                index=['active', 'alumni', 'inactive', 'deceased'].index(member.get('member_status', 'active')))
+                new_community_involvement = st.text_area("Community Involvement", 
+                                                        value=member.get('community_involvement', '') or '',
+                                                        placeholder="Board memberships, community roles...",
+                                                        height=60)
+            
+            # Additional Contact Information
+            st.write("**📞 Additional Contact**")
+            col_k, col_l = st.columns(2)
+            with col_k:
+                new_secondary_email = st.text_input("Secondary Email", value=member.get('secondary_email', '') or '')
+                new_office_phone = st.text_input("Office Phone", value=member.get('office_phone', '') or '')
+            with col_l:
+                new_birth_date = st.date_input("Birth Date", 
+                                             value=None if not member.get('birth_date') else 
+                                             datetime.strptime(member.get('birth_date', ''), '%Y-%m-%d').date() if member.get('birth_date') else None)
+                # Willing to help members checkbox
+                new_willing_to_help = st.checkbox("Willing to help other members", 
+                                                 value=member.get('willing_to_help_members', True))
+            
             # Notes section
             new_notes = st.text_area("Admin Notes", placeholder="Add any admin notes about this member...", height=80)
             
@@ -355,6 +567,68 @@ def show_member_editor(member):
                 
                 if new_office_address != (member.get('office_address_full') or ''):
                     updates['office_address_full'] = new_office_address if new_office_address else None
+                
+                # Professional Information
+                if new_job_title != (member.get('job_title') or ''):
+                    updates['job_title'] = new_job_title if new_job_title else None
+                
+                if new_linkedin != (member.get('linkedin_profile') or ''):
+                    updates['linkedin_profile'] = new_linkedin if new_linkedin else None
+                
+                if new_services_offered != (member.get('services_offered') or ''):
+                    updates['services_offered'] = new_services_offered if new_services_offered else None
+                
+                if new_practice_areas != (member.get('practice_areas') or ''):
+                    updates['practice_areas'] = new_practice_areas if new_practice_areas else None
+                
+                # Personal Interests & Hobbies
+                if new_interests != (member.get('interests_hobbies') or ''):
+                    updates['interests_hobbies'] = new_interests if new_interests else None
+                    if new_interests:
+                        updates['interests_hobbies_normalized'] = new_interests.lower()
+                
+                if new_sports != (member.get('sports_activities') or ''):
+                    updates['sports_activities'] = new_sports if new_sports else None
+                    if new_sports:
+                        updates['sports_activities_normalized'] = new_sports.lower()
+                
+                if new_volunteer_work != (member.get('volunteer_work') or ''):
+                    updates['volunteer_work'] = new_volunteer_work if new_volunteer_work else None
+                
+                if new_social_clubs != (member.get('social_clubs') or ''):
+                    updates['social_clubs'] = new_social_clubs if new_social_clubs else None
+                
+                # Academic Information
+                if new_course != (member.get('course') or ''):
+                    updates['course'] = new_course if new_course else None
+                    if new_course:
+                        updates['course_normalized'] = new_course.lower()
+                
+                if new_positions_held != (member.get('positions_held') or ''):
+                    updates['positions_held'] = new_positions_held if new_positions_held else None
+                
+                if new_member_status != (member.get('member_status') or 'active'):
+                    updates['member_status'] = new_member_status
+                
+                if new_community_involvement != (member.get('community_involvement') or ''):
+                    updates['community_involvement'] = new_community_involvement if new_community_involvement else None
+                
+                # Additional Contact Information
+                if new_secondary_email != (member.get('secondary_email') or ''):
+                    updates['secondary_email'] = new_secondary_email if new_secondary_email else None
+                
+                if new_office_phone != (member.get('office_phone') or ''):
+                    updates['office_phone'] = new_office_phone if new_office_phone else None
+                
+                # Birth date handling
+                current_birth_date = member.get('birth_date')
+                new_birth_date_str = new_birth_date.strftime('%Y-%m-%d') if new_birth_date else None
+                if new_birth_date_str != current_birth_date:
+                    updates['birth_date'] = new_birth_date_str
+                
+                # Willing to help checkbox
+                if new_willing_to_help != member.get('willing_to_help_members', True):
+                    updates['willing_to_help_members'] = new_willing_to_help
                 
                 # Save changes if any
                 if updates:
@@ -476,6 +750,28 @@ def show_add_member_form():
         
         st.divider()
         
+        # Personal Interests & Hobbies
+        st.write("**🎯 Interests & Hobbies**")
+        col_int1, col_int2 = st.columns(2)
+        
+        with col_int1:
+            new_interests = st.text_area("Interests & Hobbies", 
+                                       placeholder="Photography, cooking, reading, traveling...",
+                                       height=80)
+            new_volunteer_work = st.text_area("Volunteer Work", 
+                                            placeholder="NGO work, community service...",
+                                            height=60)
+        
+        with col_int2:
+            new_sports = st.text_area("Sports & Activities", 
+                                    placeholder="Basketball, tennis, running, cycling...",
+                                    height=80)
+            new_social_clubs = st.text_area("Social Clubs/Organizations", 
+                                           placeholder="Rotary, Lions Club, Country Club...",
+                                           height=60)
+        
+        st.divider()
+        
         # Address Information
         st.write("**🏠 Address Information**")
         col7, col8 = st.columns(2)
@@ -544,7 +840,14 @@ def show_add_member_form():
                     'data_completeness_score': 0.8,  # High completeness for manual entries
                     'birth_date': new_birth_date if new_birth_date else None,
                     'services_offered': new_services.strip() if new_services else None,
-                    'willing_to_help_members': new_willing_to_help
+                    'willing_to_help_members': new_willing_to_help,
+                    # Personal Interests & Hobbies
+                    'interests_hobbies': new_interests.strip() if new_interests else None,
+                    'interests_hobbies_normalized': new_interests.strip().lower() if new_interests else None,
+                    'sports_activities': new_sports.strip() if new_sports else None,
+                    'sports_activities_normalized': new_sports.strip().lower() if new_sports else None,
+                    'volunteer_work': new_volunteer_work.strip() if new_volunteer_work else None,
+                    'social_clubs': new_social_clubs.strip() if new_social_clubs else None
                 }
                 
                 # Add batch normalization if batch is provided
@@ -811,6 +1114,12 @@ def show_member_details(member):
         st.write(f"Batch: {member.get('batch_normalized', 'N/A')}")
         st.write(f"Chapter: {member.get('school_chapter_normalized', 'N/A')}")
         st.write(f"Degree: {member.get('degree_course', 'N/A')}")
+        
+        st.write("**Personal Interests**")
+        st.write(f"Interests/Hobbies: {member.get('interests_hobbies', 'N/A')}")
+        st.write(f"Sports: {member.get('sports_activities', 'N/A')}")
+        st.write(f"Volunteer Work: {member.get('volunteer_work', 'N/A')}")
+        st.write(f"Social Clubs: {member.get('social_clubs', 'N/A')}")
         
         st.write("**System Information**")
         st.write(f"Confidence Score: {member.get('confidence_score', 'N/A')}")

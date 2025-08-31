@@ -162,6 +162,16 @@ class DatabaseManager:
                 prof = f"%{query_params['profession'].lower()}%"
                 params.extend([prof, prof, prof])
             
+            if query_params.get('interests'):
+                where_clauses.append("""
+                    (interests_hobbies LIKE ?
+                     OR interests_hobbies_normalized LIKE ?
+                     OR sports_activities LIKE ?
+                     OR sports_activities_normalized LIKE ?)
+                """)
+                interest = f"%{query_params['interests'].lower()}%"
+                params.extend([interest, interest, interest, interest])
+            
             if query_params.get('location'):
                 where_clauses.append("""
                     (home_address_full LIKE ?
