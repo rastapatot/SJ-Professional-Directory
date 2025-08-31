@@ -310,111 +310,107 @@ class DatabaseManager:
                    source_file: str = None, confidence_score: float = None):
         """Log a change to member data."""
         with self.get_connection() as conn:
-        
-        sql = """
-        INSERT INTO member_change_history 
-        (member_id, field_name, old_value, new_value, change_type, 
-         change_reason, source_file, confidence_score)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """
-        
-        try:
-            conn.execute(sql, (
-                member_id, field_name, str(old_value) if old_value else None,
-                str(new_value) if new_value else None, change_type,
-                change_reason, source_file, confidence_score
-            ))
-            conn.commit()
-        except Exception as e:
-            logger.error(f"Error logging change: {e}")
+            sql = """
+            INSERT INTO member_change_history 
+            (member_id, field_name, old_value, new_value, change_type, 
+             change_reason, source_file, confidence_score)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """
+            
+            try:
+                conn.execute(sql, (
+                    member_id, field_name, str(old_value) if old_value else None,
+                    str(new_value) if new_value else None, change_type,
+                    change_reason, source_file, confidence_score
+                ))
+                conn.commit()
+            except Exception as e:
+                logger.error(f"Error logging change: {e}")
     
     def get_member_history(self, member_id: int) -> List[Dict[str, Any]]:
         """Get change history for a member."""
-        conn = self.get_connection()
-        
-        sql = """
-        SELECT * FROM member_change_history 
-        WHERE member_id = ? 
-        ORDER BY changed_at DESC
-        """
-        
-        cursor = conn.execute(sql, (member_id,))
-        return [dict(row) for row in cursor.fetchall()]
+        with self.get_connection() as conn:
+            sql = """
+            SELECT * FROM member_change_history 
+            WHERE member_id = ? 
+            ORDER BY changed_at DESC
+            """
+            
+            cursor = conn.execute(sql, (member_id,))
+            return [dict(row) for row in cursor.fetchall()]
     
     def find_potential_duplicates(self, limit: int = 100) -> List[Dict[str, Any]]:
         """Find potential duplicate members."""
-        conn = self.get_connection()
-        
-        # Find members with similar names or identical emails
-        sql = """
-        SELECT 
-            m1.id as id1, m1.full_name as name1, m1.primary_email as email1,
-            m2.id as id2, m2.full_name as name2, m2.primary_email as email2,
-            CASE 
-                WHEN m1.primary_email = m2.primary_email THEN 'email_match'
-                ELSE 'name_similarity'
-            END as match_type
-        FROM members m1
-        JOIN members m2 ON m1.id < m2.id
-        WHERE m1.is_duplicate = FALSE AND m2.is_duplicate = FALSE
-        AND (
-            m1.primary_email = m2.primary_email
-            OR (
-                m1.full_name_normalized LIKE '%' || m2.full_name_normalized || '%'
-                OR m2.full_name_normalized LIKE '%' || m1.full_name_normalized || '%'
+        with self.get_connection() as conn:
+            # Find members with similar names or identical emails
+            sql = """
+            SELECT 
+                m1.id as id1, m1.full_name as name1, m1.primary_email as email1,
+                m2.id as id2, m2.full_name as name2, m2.primary_email as email2,
+                CASE 
+                    WHEN m1.primary_email = m2.primary_email THEN 'email_match'
+                    ELSE 'name_similarity'
+                END as match_type
+            FROM members m1
+            JOIN members m2 ON m1.id < m2.id
+            WHERE m1.is_duplicate = FALSE AND m2.is_duplicate = FALSE
+            AND (
+                m1.primary_email = m2.primary_email
+                OR (
+                    m1.full_name_normalized LIKE '%' || m2.full_name_normalized || '%'
+                    OR m2.full_name_normalized LIKE '%' || m1.full_name_normalized || '%'
+                )
             )
-        )
-        LIMIT ?
-        """
-        
-        cursor = conn.execute(sql, (limit,))
-        return [dict(row) for row in cursor.fetchall()]
+            LIMIT ?
+            """
+            
+            cursor = conn.execute(sql, (limit,))
+            return [dict(row) for row in cursor.fetchall()]
     
     def merge_duplicates(self, primary_id: int, duplicate_ids: List[int]) -> Dict[str, Any]:
         """Merge duplicate member records."""
-        conn = self.get_connection()
-        
-        try:
-            # Start transaction
-            conn.execute("BEGIN TRANSACTION")
-            
-            # Get primary record
-            primary = self.get_member_by_id(primary_id)
-            if not primary:
-                raise ValueError(f"Primary member {primary_id} not found")
-            
-            merged_count = 0
-            
-            for dup_id in duplicate_ids:
-                # Mark duplicate as merged
-                conn.execute("""
-                    UPDATE members 
-                    SET is_duplicate = TRUE, primary_record_id = ?, 
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                """, (primary_id, dup_id))
+        with self.get_connection() as conn:
+            try:
+                # Start transaction
+                conn.execute("BEGIN TRANSACTION")
                 
-                # Log the merge
-                self.log_change(
-                    dup_id, 'record_status', 'active', 'merged',
-                    'MERGE', 'duplicate_merge'
-                )
+                # Get primary record
+                primary = self.get_member_by_id(primary_id)
+                if not primary:
+                    raise ValueError(f"Primary member {primary_id} not found")
                 
-                merged_count += 1
-            
-            conn.commit()
-            logger.info(f"Merged {merged_count} duplicates into member {primary_id}")
-            
-            return {
-                'primary_id': primary_id,
-                'merged_count': merged_count,
-                'merged_ids': duplicate_ids
-            }
-            
-        except Exception as e:
-            conn.rollback()
-            logger.error(f"Error merging duplicates: {e}")
-            raise
+                merged_count = 0
+                
+                for dup_id in duplicate_ids:
+                    # Mark duplicate as merged
+                    conn.execute("""
+                        UPDATE members 
+                        SET is_duplicate = TRUE, primary_record_id = ?, 
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                    """, (primary_id, dup_id))
+                    
+                    # Log the merge
+                    self.log_change(
+                        dup_id, 'record_status', 'active', 'merged',
+                        'MERGE', 'duplicate_merge'
+                    )
+                    
+                    merged_count += 1
+                
+                conn.commit()
+                logger.info(f"Merged {merged_count} duplicates into member {primary_id}")
+                
+                return {
+                    'primary_id': primary_id,
+                    'merged_count': merged_count,
+                    'merged_ids': duplicate_ids
+                }
+                
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"Error merging duplicates: {e}")
+                raise
     
     def get_system_stats(self) -> Dict[str, Any]:
         """Get system statistics."""
@@ -459,16 +455,15 @@ class DatabaseManager:
     
     def get_import_stats(self) -> List[Dict[str, Any]]:
         """Get import batch statistics."""
-        conn = self.get_connection()
-        
-        sql = """
-        SELECT * FROM import_batches 
-        ORDER BY import_date DESC 
-        LIMIT 10
-        """
-        
-        cursor = conn.execute(sql)
-        return [dict(row) for row in cursor.fetchall()]
+        with self.get_connection() as conn:
+            sql = """
+            SELECT * FROM import_batches 
+            ORDER BY import_date DESC 
+            LIMIT 10
+            """
+            
+            cursor = conn.execute(sql)
+            return [dict(row) for row in cursor.fetchall()]
     
     def get_data_quality_summary(self) -> Dict[str, Any]:
         """Get data quality summary."""
@@ -497,17 +492,16 @@ class DatabaseManager:
     
     def create_import_batch(self, batch_name: str, source_files: List[str]) -> int:
         """Create a new import batch record."""
-        conn = self.get_connection()
-        
-        sql = """
-        INSERT INTO import_batches (batch_name, source_files, import_type)
-        VALUES (?, ?, 'initial')
-        """
-        
-        cursor = conn.execute(sql, (batch_name, json.dumps(source_files)))
-        batch_id = cursor.lastrowid
-        conn.commit()
-        return batch_id
+        with self.get_connection() as conn:
+            sql = """
+            INSERT INTO import_batches (batch_name, source_files, import_type)
+            VALUES (?, ?, 'initial')
+            """
+            
+            cursor = conn.execute(sql, (batch_name, json.dumps(source_files)))
+            batch_id = cursor.lastrowid
+            conn.commit()
+            return batch_id
     
     def update_import_batch(self, batch_id: int, updates: Dict[str, Any]):
         """Update import batch with results."""
@@ -519,17 +513,16 @@ class DatabaseManager:
         if not updates:
             return
         
-        conn = self.get_connection()
-        
-        set_clauses = [f"{col} = ?" for col in updates.keys()]
-        values = list(updates.values()) + [record_id]
-        
-        sql = f"UPDATE {table} SET {', '.join(set_clauses)} WHERE id = ?"
-        
-        try:
-            conn.execute(sql, values)
-            conn.commit()
-        except Exception as e:
-            conn.rollback()
-            logger.error(f"Error updating {table} record {record_id}: {e}")
-            raise
+        with self.get_connection() as conn:
+            set_clauses = [f"{col} = ?" for col in updates.keys()]
+            values = list(updates.values()) + [record_id]
+            
+            sql = f"UPDATE {table} SET {', '.join(set_clauses)} WHERE id = ?"
+            
+            try:
+                conn.execute(sql, values)
+                conn.commit()
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"Error updating {table} record {record_id}: {e}")
+                raise
