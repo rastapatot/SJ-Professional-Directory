@@ -132,7 +132,9 @@ def smart_search(query, include_inactive=False):
             st.info(f"🔍 Database has {test_count} total members")
             
             # Test direct search
-            direct_results = st.session_state.db_manager.search_members({'name': query})
+            search_params = {'name': query}
+            st.info(f"🔍 Searching with params: {search_params}")
+            direct_results = st.session_state.db_manager.search_members(search_params)
             st.info(f"🔍 Direct DB search returned {len(direct_results)} results")
             
             if direct_results:

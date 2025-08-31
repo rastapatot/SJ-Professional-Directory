@@ -201,6 +201,15 @@ class DatabaseManager:
             LIMIT 100
             """
             
+            # Debug output for Streamlit
+            try:
+                import streamlit as st
+                st.info(f"🔍 SQL: {sql}")
+                st.info(f"🔍 Params: {params}")
+                st.info(f"🔍 Where clauses: {where_clauses}")
+            except:
+                pass  # Not in Streamlit context
+            
             cursor = conn.execute(sql, params)
             return [dict(row) for row in cursor.fetchall()]
     
@@ -300,7 +309,7 @@ class DatabaseManager:
                    new_value: Any, change_type: str, change_reason: str,
                    source_file: str = None, confidence_score: float = None):
         """Log a change to member data."""
-        conn = self.get_connection()
+        with self.get_connection() as conn:
         
         sql = """
         INSERT INTO member_change_history 
