@@ -126,6 +126,20 @@ def smart_search(query, include_inactive=False):
             
         st.info("🔍 Session state OK")
         
+        # Test direct database connection
+        try:
+            test_count = st.session_state.db_manager.get_system_stats()['total_members']
+            st.info(f"🔍 Database has {test_count} total members")
+            
+            # Test direct search
+            direct_results = st.session_state.db_manager.search_members({'name': query})
+            st.info(f"🔍 Direct DB search returned {len(direct_results)} results")
+            
+            if direct_results:
+                st.info(f"🔍 First direct result: {direct_results[0].get('full_name', 'Unknown')}")
+        except Exception as e:
+            st.error(f"🔍 Database test failed: {e}")
+        
         # Try enhanced natural language search first
         if hasattr(st.session_state.query_processor, 'search_natural_language'):
             st.info("🔍 Using natural language search")
