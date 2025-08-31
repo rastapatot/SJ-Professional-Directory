@@ -64,7 +64,6 @@ def check_database():
 
 def main_search_interface():
     """Unified search interface."""
-    st.info("🔍 DEBUG: main_search_interface() called")
     st.title("🏢 SJ Professional Directory")
     st.markdown("*Your intelligent fraternity directory*")
     
@@ -86,8 +85,6 @@ def main_search_interface():
         help="Search by name, location, profession, interests, batch, or ask natural language questions"
     )
     
-    st.info(f"🔍 DEBUG: Text input value: '{query}' (length: {len(query) if query else 0})")
-    
     # Search options in a compact row
     col1, col2, col3 = st.columns([2, 1, 1])
     with col2:
@@ -97,32 +94,14 @@ def main_search_interface():
             st.rerun()
     
     if query:
-        st.info(f"🔍 DEBUG: Query entered: '{query}'")
-        st.info(f"🔍 DEBUG: Include inactive: {include_inactive}")
-        
-        # Check session state
-        if 'db_manager' not in st.session_state:
-            st.error("🔍 DEBUG: db_manager not in session state!")
-        else:
-            st.info("🔍 DEBUG: db_manager found in session state")
-            
-        if 'query_processor' not in st.session_state:
-            st.error("🔍 DEBUG: query_processor not in session state!")
-        else:
-            st.info("🔍 DEBUG: query_processor found in session state")
-        
         with st.spinner("Searching..."):
             try:
-                st.info("🔍 DEBUG: About to call smart_search")
                 # Smart search - try different methods based on query
                 results = smart_search(query, include_inactive)
-                st.info(f"🔍 DEBUG: smart_search returned {len(results) if results else 0} results")
                 display_search_results(results, query)
                 
             except Exception as e:
                 st.error(f"Search error: {e}")
-                import traceback
-                st.error(f"Full traceback: {traceback.format_exc()}")
                 st.info("💡 Try a different search term or check your spelling.")
 
 def smart_search(query, include_inactive=False):
@@ -130,33 +109,16 @@ def smart_search(query, include_inactive=False):
     results = []
     
     try:
-        # Debug info
-        st.info(f"🔍 DEBUG: Searching for '{query}'")
-        
         # Try enhanced natural language search first
         if hasattr(st.session_state.query_processor, 'search_natural_language'):
-            st.info("🔍 DEBUG: Using natural language search")
-            
-            # Test database connection within QueryProcessor context
-            try:
-                test_db_results = st.session_state.db_manager.search_members({'name': query})
-                st.info(f"🔍 DEBUG: Direct db_manager search returned {len(test_db_results)} results")
-                if test_db_results:
-                    st.info(f"🔍 DEBUG: First result name: {test_db_results[0].get('full_name', 'Unknown')}")
-            except Exception as e:
-                st.error(f"🔍 DEBUG: Direct database search failed: {e}")
-            
             results = st.session_state.query_processor.search_natural_language(query)
-            st.info(f"🔍 DEBUG: Natural language search returned {len(results) if results else 0} results")
         else:
-            st.info("🔍 DEBUG: Using fallback search methods")
+            # Fallback to basic search methods
             
             # Try as name search
             name_results = st.session_state.db_manager.search_members({'name': query})
-            st.info(f"🔍 DEBUG: Name search returned {len(name_results)} raw results")
             if name_results:
                 results = format_basic_results(name_results, 'name_search')
-                st.info(f"🔍 DEBUG: Formatted to {len(results)} results")
             
             # If no name results, try as profession
             if not results:
@@ -182,8 +144,6 @@ def smart_search(query, include_inactive=False):
     
     except Exception as e:
         st.error(f"Search processing error: {e}")
-        import traceback
-        st.error(f"Full traceback: {traceback.format_exc()}")
         results = []
     
     return results
@@ -1473,15 +1433,8 @@ def admin_interface():
 
 def main():
     """Main application entry point."""
-    st.info("🔍 DEBUG: main() function called")
-    
     # Check database first
-    st.info("🔍 DEBUG: About to check database")
-    db_check_result = check_database()
-    st.info(f"🔍 DEBUG: check_database() returned: {db_check_result}")
-    
-    if not db_check_result:
-        st.error("🔍 DEBUG: Database check failed - exiting main()")
+    if not check_database():
         return
     
     # Sidebar navigation
