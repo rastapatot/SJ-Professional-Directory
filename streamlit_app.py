@@ -943,8 +943,7 @@ def show_add_member_form():
                 cursor = fresh_conn.execute('''
                     SELECT id, full_name, primary_email, secondary_email
                     FROM members 
-                    WHERE is_active = TRUE 
-                    AND is_duplicate = FALSE
+                    WHERE is_duplicate = FALSE
                     AND (primary_email = ? OR secondary_email = ?)
                     LIMIT 1
                 ''', (new_email.strip(), new_email.strip()))

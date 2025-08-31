@@ -136,7 +136,7 @@ class DatabaseManager:
     def get_member_by_id(self, member_id: int) -> Optional[Dict[str, Any]]:
         """Get member by ID."""
         with self.get_connection() as conn:
-            sql = "SELECT * FROM members WHERE id = ? AND is_active = TRUE"
+            sql = "SELECT * FROM members WHERE id = ?"
             cursor = conn.execute(sql, (member_id,))
             row = cursor.fetchone()
             
@@ -145,7 +145,7 @@ class DatabaseManager:
     def search_members(self, query_params: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Search members with various filters."""
         with self.get_connection() as conn:
-            where_clauses = ["is_active = TRUE", "is_duplicate = FALSE"]
+            where_clauses = ["is_duplicate = FALSE"]
             params = []
             
             # Build dynamic WHERE clause
@@ -214,8 +214,7 @@ class DatabaseManager:
             where_clauses = []
             params = []
             
-            if not include_inactive:
-                where_clauses.append("is_active = TRUE")
+            # Removed is_active filter - show all members regardless of status
             
             if search_term:
                 where_clauses.append("""
@@ -348,8 +347,7 @@ class DatabaseManager:
             END as match_type
         FROM members m1
         JOIN members m2 ON m1.id < m2.id
-        WHERE m1.is_active = TRUE AND m2.is_active = TRUE
-        AND m1.is_duplicate = FALSE AND m2.is_duplicate = FALSE
+        WHERE m1.is_duplicate = FALSE AND m2.is_duplicate = FALSE
         AND (
             m1.primary_email = m2.primary_email
             OR (
@@ -415,7 +413,7 @@ class DatabaseManager:
             stats = {}
             
             # Basic counts
-            cursor = conn.execute("SELECT COUNT(*) FROM members WHERE is_active = TRUE")
+            cursor = conn.execute("SELECT COUNT(*) FROM members")
             stats['total_members'] = cursor.fetchone()[0]
             
             cursor = conn.execute("SELECT COUNT(*) FROM members WHERE is_duplicate = TRUE")
@@ -423,20 +421,20 @@ class DatabaseManager:
             
             cursor = conn.execute("""
                 SELECT COUNT(*) FROM members 
-                WHERE is_active = TRUE AND primary_email IS NOT NULL
+                WHERE primary_email IS NOT NULL
             """)
             stats['members_with_email'] = cursor.fetchone()[0]
             
             cursor = conn.execute("""
                 SELECT COUNT(*) FROM members 
-                WHERE is_active = TRUE AND current_profession IS NOT NULL
+                WHERE current_profession IS NOT NULL
             """)
             stats['members_with_profession'] = cursor.fetchone()[0]
             
             # Data quality
             cursor = conn.execute("""
                 SELECT AVG(confidence_score) FROM members 
-                WHERE is_active = TRUE AND confidence_score IS NOT NULL
+                WHERE confidence_score IS NOT NULL
             """)
             result = cursor.fetchone()[0]
             stats['avg_confidence'] = round(result, 2) if result else 0
@@ -473,7 +471,7 @@ class DatabaseManager:
                 COUNT(CASE WHEN primary_email IS NOT NULL THEN 1 END) as with_email,
                 COUNT(CASE WHEN mobile_phone IS NOT NULL THEN 1 END) as with_mobile,
                 COUNT(CASE WHEN current_profession IS NOT NULL THEN 1 END) as with_profession,
-                COUNT(CASE WHEN is_active = TRUE THEN 1 END) as active_members,
+                COUNT(*) as total_records_all,
                 COUNT(CASE WHEN is_duplicate = TRUE THEN 1 END) as duplicates,
                 AVG(confidence_score) as avg_confidence,
                 AVG(data_completeness_score) as avg_completeness
