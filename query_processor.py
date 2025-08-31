@@ -85,19 +85,26 @@ class QueryProcessor:
                     'original_query': query
                 }
         
-        # Professional service queries
-        profession_indicators = ['lawyer', 'doctor', 'engineer', 'need', 'looking for', 'find me a']
-        if any(indicator in query_lower for indicator in profession_indicators):
-            return {
-                'type': 'professional_service',
-                'original_query': query
-            }
+        # Professional service queries - more specific patterns
+        professional_patterns = [
+            r'(?:need|looking for|find me) (?:a |an )?(?:lawyer|doctor|engineer|accountant|consultant)',
+            r'(?:lawyer|doctor|engineer|accountant|consultant)',
+            r'(?:legal|medical|engineering|accounting|consulting) (?:help|services|advice)'
+        ]
+        
+        for pattern in professional_patterns:
+            if re.search(pattern, query_lower):
+                return {
+                    'type': 'professional_service',
+                    'original_query': query
+                }
         
         # Interest-based queries
         interest_patterns = [
             r'(?:who|anyone) (?:likes?|enjoys?|plays?) (.+)',
             r'(?:find|show) (?:me )?(?:people|members) (?:who )?(?:like|enjoy|play) (.+)',
             r'(?:who|anyone) (?:can help|knows about|has experience with) (?:me )?(?:with |buy |sell |find )?(.+)',
+            r'(?:need|want) to (?:buy|sell|find|get) (.+)',
             r'(?:interested in|into) (.+)',
             r'hobbies? (?:include?|are?) (.+)',
             r'sports? (.+)'
@@ -760,7 +767,7 @@ class QueryProcessor:
         score += confidence * 0.3
         
         # Profession match
-        query_profession = query_components.get('profession', '').lower()
+        query_profession = (query_components.get('profession') or '').lower()
         member_profession = (member.get('current_profession_normalized') or '').lower()
         inferred_profession = (member.get('inferred_profession') or '').lower()
         
