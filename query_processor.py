@@ -105,9 +105,12 @@ class QueryProcessor:
         for pattern in interest_patterns:
             match = re.search(pattern, query_lower)
             if match:
+                # Clean punctuation from extracted interest
+                interest = match.group(1).strip()
+                interest = re.sub(r'[?!.,;]+$', '', interest)  # Remove trailing punctuation
                 return {
                     'type': 'interest_based',
-                    'interest': match.group(1).strip(),
+                    'interest': interest,
                     'original_query': query
                 }
         
