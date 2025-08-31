@@ -199,6 +199,26 @@ st.markdown("""
         margin: 1rem 0;
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
     }
+    
+    /* Yellow notes styling */
+    .yellow-notes {
+        color: #ffff00 !important;
+        background: linear-gradient(135deg, #2a2a1a, #3a3a1a);
+        padding: 1rem;
+        border-radius: 8px;
+        border-left: 4px solid #ffff00;
+        margin: 1rem 0;
+    }
+    
+    .yellow-notes strong {
+        color: #ffff88 !important;
+    }
+    
+    /* Text input labels */
+    .stTextInput label {
+        color: #ffff00 !important;
+        font-weight: bold;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -255,13 +275,15 @@ def main_search_interface():
     # Single unified search box
     st.markdown("### 🔍 Search Members")
     st.markdown("""
-    **Search by name, location, profession, interests, or ask questions:**
-    - Names: *Juan Dela Cruz*, *Maria Santos*
-    - Locations: *Who lives in Makati?*, *Anyone from Quezon City?*
-    - Professions: *I need a lawyer*, *Find me a doctor*
-    - Interests: *Who plays basketball?*, *Anyone into photography?*
-    - Batches: *Show me batch 95-S*, *List batch 2000-B*
-    """)
+    <div class="yellow-notes">
+    <strong>Search by name, location, profession, interests, or ask questions:</strong><br>
+    • Names: <em>Juan Dela Cruz</em>, <em>Maria Santos</em><br>
+    • Locations: <em>Who lives in Makati?</em>, <em>Anyone from Quezon City?</em><br>
+    • Professions: <em>I need a lawyer</em>, <em>Find me a doctor</em><br>
+    • Interests: <em>Who plays basketball?</em>, <em>Anyone into photography?</em><br>
+    • Batches: <em>Show me batch 95-S</em>, <em>List batch 2000-B</em>
+    </div>
+    """, unsafe_allow_html=True)
     
     # Main search input
     query = st.text_input(
@@ -270,11 +292,9 @@ def main_search_interface():
         help="Search by name, location, profession, interests, batch, or ask natural language questions"
     )
     
-    # Search options in a compact row
-    col1, col2, col3 = st.columns([2, 1, 1])
+    # Search options
+    col1, col2 = st.columns([3, 1])
     with col2:
-        include_inactive = st.checkbox("Include inactive members")
-    with col3:
         if st.button("🔄 Clear"):
             st.rerun()
     
@@ -283,7 +303,7 @@ def main_search_interface():
         with st.spinner("Searching..."):
             try:
                 # Smart search - try different methods based on query
-                results = smart_search(query, include_inactive)
+                results = smart_search(query)
                 st.info(f"🔍 Found {len(results) if results else 0} results")
                 display_search_results(results, query)
                 
@@ -293,13 +313,11 @@ def main_search_interface():
                 st.error(f"Traceback: {traceback.format_exc()}")
                 st.info("💡 Try a different search term or check your spelling.")
 
-def smart_search(query, include_inactive=False):
+def smart_search(query):
     """Smart search that tries different search methods."""
     results = []
     
     try:
-        st.info("🔍 Starting smart_search")
-        
         # Check session state
         if 'query_processor' not in st.session_state:
             st.error("🔍 ERROR: query_processor not in session state")
@@ -308,32 +326,11 @@ def smart_search(query, include_inactive=False):
         if 'db_manager' not in st.session_state:
             st.error("🔍 ERROR: db_manager not in session state") 
             return []
-            
-        st.info("🔍 Session state OK")
-        
-        # Test direct database connection
-        try:
-            test_count = st.session_state.db_manager.get_system_stats()['total_members']
-            st.info(f"🔍 Database has {test_count} total members")
-            
-            # Test direct search
-            search_params = {'name': query}
-            st.info(f"🔍 Searching with params: {search_params}")
-            direct_results = st.session_state.db_manager.search_members(search_params)
-            st.info(f"🔍 Direct DB search returned {len(direct_results)} results")
-            
-            if direct_results:
-                st.info(f"🔍 First direct result: {direct_results[0].get('full_name', 'Unknown')}")
-        except Exception as e:
-            st.error(f"🔍 Database test failed: {e}")
         
         # Try enhanced natural language search first
         if hasattr(st.session_state.query_processor, 'search_natural_language'):
-            st.info("🔍 Using natural language search")
             results = st.session_state.query_processor.search_natural_language(query)
-            st.info(f"🔍 NLP search returned {len(results) if results else 0} results")
         else:
-            st.info("🔍 Using fallback search methods")
             
             # Try as name search
             name_results = st.session_state.db_manager.search_members({'name': query})
