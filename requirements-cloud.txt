@@ -1,0 +1,26 @@
+# SJ Professional Directory - Cloud Deployment Dependencies
+# Streamlined for Streamlit Cloud
+
+# Web Framework
+streamlit>=1.28.0
+
+# Database & Data Processing  
+pandas>=2.0.0
+sqlite3  # Built into Python
+
+# Excel/Office File Processing
+xlrd>=2.0.0
+openpyxl>=3.1.0
+python-docx>=0.8.0
+
+# Text Processing
+fuzzywuzzy>=0.18.0
+python-levenshtein>=0.20.0
+
+# Utility Libraries
+dateparser>=1.1.0
+phonenumbers>=8.13.0
+chardet>=5.0.0
+tqdm>=4.66.0
+click>=8.0.0
+colorama>=0.4.0
