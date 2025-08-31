@@ -190,6 +190,99 @@ class DatabaseManager:
             cursor = conn.execute(sql, params)
             return [dict(row) for row in cursor.fetchall()]
     
+    def get_all_members_paginated(self, page: int = 1, per_page: int = 50, 
+                                  search_term: str = None, include_inactive: bool = False) -> tuple:
+        """Get all members with pagination and optional search."""
+        with self.get_connection() as conn:
+            offset = (page - 1) * per_page
+            
+            # Base query conditions
+            where_clauses = []
+            params = []
+            
+            if not include_inactive:
+                where_clauses.append("is_active = TRUE")
+            
+            if search_term:
+                where_clauses.append("""
+                    (full_name_normalized LIKE ? 
+                     OR primary_email LIKE ? 
+                     OR current_profession LIKE ?
+                     OR batch_normalized LIKE ?)
+                """)
+                search_pattern = f"%{search_term.lower()}%"
+                params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
+            
+            where_clause = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+            
+            # Get total count
+            count_sql = f"SELECT COUNT(*) FROM members {where_clause}"
+            cursor = conn.execute(count_sql, params)
+            total_count = cursor.fetchone()[0]
+            
+            # Get paginated results
+            data_sql = f"""
+            SELECT * FROM members 
+            {where_clause}
+            ORDER BY updated_at DESC, full_name 
+            LIMIT ? OFFSET ?
+            """
+            
+            cursor = conn.execute(data_sql, params + [per_page, offset])
+            members = [dict(row) for row in cursor.fetchall()]
+            
+            return members, total_count
+    
+    def delete_member(self, member_id: int) -> bool:
+        """Soft delete a member by setting is_active to FALSE."""
+        with self.get_connection() as conn:
+            try:
+                sql = """
+                UPDATE members 
+                SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """
+                
+                cursor = conn.execute(sql, (member_id,))
+                conn.commit()
+                
+                if cursor.rowcount > 0:
+                    logger.info(f"Soft deleted member {member_id}")
+                    return True
+                else:
+                    logger.warning(f"Member {member_id} not found for deletion")
+                    return False
+                    
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"Error deleting member {member_id}: {e}")
+                raise
+    
+    def restore_member(self, member_id: int) -> bool:
+        """Restore a soft-deleted member by setting is_active to TRUE."""
+        with self.get_connection() as conn:
+            try:
+                sql = """
+                UPDATE members 
+                SET is_active = TRUE, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """
+                
+                cursor = conn.execute(sql, (member_id,))
+                conn.commit()
+                
+                if cursor.rowcount > 0:
+                    logger.info(f"Restored member {member_id}")
+                    return True
+                else:
+                    logger.warning(f"Member {member_id} not found for restoration")
+                    return False
+                    
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"Error restoring member {member_id}: {e}")
+                raise
+    
     def log_change(self, member_id: int, field_name: str, old_value: Any, 
                    new_value: Any, change_type: str, change_reason: str,
                    source_file: str = None, confidence_score: float = None):

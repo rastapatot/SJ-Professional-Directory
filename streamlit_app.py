@@ -621,6 +621,204 @@ def sidebar_stats():
     except Exception as e:
         st.sidebar.error("Could not load stats")
 
+def show_all_members_interface():
+    """Show all members with pagination and management options."""
+    st.subheader("📋 All Members")
+    
+    # Initialize session state for pagination
+    if 'admin_page' not in st.session_state:
+        st.session_state.admin_page = 1
+    if 'admin_per_page' not in st.session_state:
+        st.session_state.admin_per_page = 25
+    if 'admin_search' not in st.session_state:
+        st.session_state.admin_search = ""
+    if 'admin_include_inactive' not in st.session_state:
+        st.session_state.admin_include_inactive = False
+    
+    # Controls row
+    col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
+    
+    with col1:
+        search_term = st.text_input("🔍 Search members:", 
+                                   value=st.session_state.admin_search,
+                                   placeholder="Name, email, profession, batch...")
+        if search_term != st.session_state.admin_search:
+            st.session_state.admin_search = search_term
+            st.session_state.admin_page = 1  # Reset to first page on new search
+    
+    with col2:
+        per_page = st.selectbox("Per page:", [10, 25, 50, 100], 
+                               index=[10, 25, 50, 100].index(st.session_state.admin_per_page))
+        if per_page != st.session_state.admin_per_page:
+            st.session_state.admin_per_page = per_page
+            st.session_state.admin_page = 1
+    
+    with col3:
+        include_inactive = st.checkbox("Include inactive", value=st.session_state.admin_include_inactive)
+        if include_inactive != st.session_state.admin_include_inactive:
+            st.session_state.admin_include_inactive = include_inactive
+            st.session_state.admin_page = 1
+    
+    with col4:
+        if st.button("🔄 Refresh"):
+            st.rerun()
+    
+    try:
+        # Get members with pagination
+        members, total_count = st.session_state.db_manager.get_all_members_paginated(
+            page=st.session_state.admin_page,
+            per_page=st.session_state.admin_per_page,
+            search_term=st.session_state.admin_search if st.session_state.admin_search else None,
+            include_inactive=st.session_state.admin_include_inactive
+        )
+        
+        if total_count == 0:
+            st.info("No members found.")
+            return
+        
+        # Pagination info
+        total_pages = (total_count + st.session_state.admin_per_page - 1) // st.session_state.admin_per_page
+        start_idx = (st.session_state.admin_page - 1) * st.session_state.admin_per_page + 1
+        end_idx = min(st.session_state.admin_page * st.session_state.admin_per_page, total_count)
+        
+        st.info(f"Showing {start_idx}-{end_idx} of {total_count} members (Page {st.session_state.admin_page} of {total_pages})")
+        
+        # Members table
+        for idx, member in enumerate(members):
+            with st.expander(
+                f"{'🔴' if not member.get('is_active', True) else '🟢'} "
+                f"{member.get('full_name', 'N/A')} | "
+                f"{member.get('batch_normalized', 'No batch')} | "
+                f"{member.get('primary_email', 'No email')}"
+            ):
+                # Member actions row
+                col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+                
+                with col1:
+                    st.write(f"**ID:** {member['id']}")
+                    st.write(f"**Profession:** {member.get('current_profession', 'N/A')}")
+                    st.write(f"**Location:** {member.get('home_address_city_normalized', 'N/A')}")
+                    st.write(f"**Status:** {'Active' if member.get('is_active', True) else 'Inactive'}")
+                
+                with col2:
+                    if st.button("📝 Edit", key=f"edit_{member['id']}"):
+                        st.session_state[f"editing_member_{member['id']}"] = True
+                        st.rerun()
+                
+                with col3:
+                    if member.get('is_active', True):
+                        if st.button("🗑️ Delete", key=f"delete_{member['id']}"):
+                            if st.session_state.db_manager.delete_member(member['id']):
+                                st.success(f"Member {member['full_name']} deleted successfully")
+                                st.rerun()
+                            else:
+                                st.error("Failed to delete member")
+                    else:
+                        if st.button("♻️ Restore", key=f"restore_{member['id']}"):
+                            if st.session_state.db_manager.restore_member(member['id']):
+                                st.success(f"Member {member['full_name']} restored successfully")
+                                st.rerun()
+                            else:
+                                st.error("Failed to restore member")
+                
+                with col4:
+                    if st.button("👁️ View", key=f"view_{member['id']}"):
+                        st.session_state[f"viewing_member_{member['id']}"] = True
+                        st.rerun()
+                
+                # Show edit form if editing
+                if st.session_state.get(f"editing_member_{member['id']}", False):
+                    st.divider()
+                    st.subheader(f"Editing: {member.get('full_name', 'N/A')}")
+                    show_member_editor(member)
+                    
+                    if st.button("✅ Done Editing", key=f"done_edit_{member['id']}"):
+                        st.session_state[f"editing_member_{member['id']}"] = False
+                        st.rerun()
+                
+                # Show detailed view if viewing
+                if st.session_state.get(f"viewing_member_{member['id']}", False):
+                    st.divider()
+                    st.subheader(f"Member Details: {member.get('full_name', 'N/A')}")
+                    show_member_details(member)
+                    
+                    if st.button("✅ Close View", key=f"close_view_{member['id']}"):
+                        st.session_state[f"viewing_member_{member['id']}"] = False
+                        st.rerun()
+        
+        # Pagination controls
+        st.divider()
+        col1, col2, col3, col4, col5 = st.columns([1, 1, 2, 1, 1])
+        
+        with col1:
+            if st.button("⏮️ First", disabled=(st.session_state.admin_page == 1)):
+                st.session_state.admin_page = 1
+                st.rerun()
+        
+        with col2:
+            if st.button("◀️ Prev", disabled=(st.session_state.admin_page == 1)):
+                st.session_state.admin_page -= 1
+                st.rerun()
+        
+        with col3:
+            # Page selector
+            new_page = st.selectbox(
+                f"Page {st.session_state.admin_page} of {total_pages}:",
+                range(1, total_pages + 1),
+                index=st.session_state.admin_page - 1,
+                key="page_selector"
+            )
+            if new_page != st.session_state.admin_page:
+                st.session_state.admin_page = new_page
+                st.rerun()
+        
+        with col4:
+            if st.button("▶️ Next", disabled=(st.session_state.admin_page == total_pages)):
+                st.session_state.admin_page += 1
+                st.rerun()
+        
+        with col5:
+            if st.button("⏭️ Last", disabled=(st.session_state.admin_page == total_pages)):
+                st.session_state.admin_page = total_pages
+                st.rerun()
+                
+    except Exception as e:
+        st.error(f"Error loading members: {e}")
+
+def show_member_details(member):
+    """Show detailed view of a member (read-only)."""
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write("**Basic Information**")
+        st.write(f"Full Name: {member.get('full_name', 'N/A')}")
+        st.write(f"Normalized Name: {member.get('full_name_normalized', 'N/A')}")
+        st.write(f"Primary Email: {member.get('primary_email', 'N/A')}")
+        st.write(f"Mobile Phone: {member.get('mobile_phone', 'N/A')}")
+        st.write(f"Home Phone: {member.get('home_phone', 'N/A')}")
+        
+        st.write("**Professional Information**")
+        st.write(f"Current Profession: {member.get('current_profession', 'N/A')}")
+        st.write(f"Company: {member.get('current_company', 'N/A')}")
+        st.write(f"LinkedIn: {member.get('linkedin_profile', 'N/A')}")
+        
+    with col2:
+        st.write("**Address Information**")
+        st.write(f"Home Address: {member.get('home_address_full', 'N/A')}")
+        st.write(f"Office Address: {member.get('office_address_full', 'N/A')}")
+        
+        st.write("**Academic Information**")
+        st.write(f"Batch: {member.get('batch_normalized', 'N/A')}")
+        st.write(f"Chapter: {member.get('school_chapter_normalized', 'N/A')}")
+        st.write(f"Degree: {member.get('degree_course', 'N/A')}")
+        
+        st.write("**System Information**")
+        st.write(f"Confidence Score: {member.get('confidence_score', 'N/A')}")
+        st.write(f"Data Completeness: {member.get('data_completeness_score', 'N/A')}")
+        st.write(f"Created: {member.get('created_at', 'N/A')}")
+        st.write(f"Updated: {member.get('updated_at', 'N/A')}")
+        st.write(f"Active: {'Yes' if member.get('is_active', True) else 'No'}")
+
 def admin_interface():
     """Admin interface for data management."""
     st.title("⚙️ Admin Panel")
@@ -710,41 +908,44 @@ def admin_interface():
     st.header("👤 Member Management")
     
     # Tabs for different member operations
-    tab1, tab2 = st.tabs(["🔍 Search & Edit Members", "➕ Add New Member"])
+    tab1, tab2, tab3 = st.tabs(["📋 All Members", "🔍 Search & Edit", "➕ Add New Member"])
     
     with tab1:
-        st.subheader("Search and Edit Members")
-    
-    search_name = st.text_input("Search by name:", placeholder="Enter member name...")
-    
-    if search_name:
-        with st.spinner("Searching members..."):
-            try:
-                # Search for members
-                search_results = st.session_state.db_manager.search_members({'name': search_name})
-                
-                if search_results:
-                    st.success(f"Found {len(search_results)} members")
-                    
-                    # Display results in a selectbox
-                    member_options = {}
-                    for member in search_results:
-                        display_name = f"{member['full_name']} - {member.get('batch_normalized', 'No batch')} - {member.get('primary_email', 'No email')}"
-                        member_options[display_name] = member
-                    
-                    selected_display = st.selectbox("Select member to edit:", list(member_options.keys()))
-                    
-                    if selected_display:
-                        selected_member = member_options[selected_display]
-                        show_member_editor(selected_member)
-                        
-                else:
-                    st.warning("No members found with that name")
-                    
-            except Exception as e:
-                st.error(f"Search error: {e}")
+        show_all_members_interface()
     
     with tab2:
+        st.subheader("Search and Edit Members")
+        
+        search_name = st.text_input("Search by name:", placeholder="Enter member name...")
+        
+        if search_name:
+            with st.spinner("Searching members..."):
+                try:
+                    # Search for members
+                    search_results = st.session_state.db_manager.search_members({'name': search_name})
+                    
+                    if search_results:
+                        st.success(f"Found {len(search_results)} members")
+                        
+                        # Display results in a selectbox
+                        member_options = {}
+                        for member in search_results:
+                            display_name = f"{member['full_name']} - {member.get('batch_normalized', 'No batch')} - {member.get('primary_email', 'No email')}"
+                            member_options[display_name] = member
+                        
+                        selected_display = st.selectbox("Select member to edit:", list(member_options.keys()))
+                        
+                        if selected_display:
+                            selected_member = member_options[selected_display]
+                            show_member_editor(selected_member)
+                            
+                    else:
+                        st.warning("No members found with that name")
+                        
+                except Exception as e:
+                    st.error(f"Search error: {e}")
+    
+    with tab3:
         show_add_member_form()
     
     st.divider()
