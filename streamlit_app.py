@@ -58,100 +58,215 @@ def check_database():
     return True
 
 def main_search_interface():
-    """Main search interface."""
+    """Unified search interface."""
     st.title("🏢 SJ Professional Directory")
-    st.markdown("*Your intelligent fraternity directory - Ask in plain English!*")
+    st.markdown("*Your intelligent fraternity directory*")
     
-    # Enhanced conversational search
-    st.header("💬 Ask Me Anything")
-    st.markdown("**Try asking**: *Who lives in Makati?*, *Show me everyone from batch 95-S*, *I need a lawyer in BGC*, *Who plays basketball?*, *Anyone interested in photography?*, *How many members do we have?*")
+    # Single unified search box
+    st.markdown("### 🔍 Search Members")
+    st.markdown("""
+    **Search by name, location, profession, interests, or ask questions:**
+    - Names: *Juan Dela Cruz*, *Maria Santos*
+    - Locations: *Who lives in Makati?*, *Anyone from Quezon City?*
+    - Professions: *I need a lawyer*, *Find me a doctor*
+    - Interests: *Who plays basketball?*, *Anyone into photography?*
+    - Batches: *Show me batch 95-S*, *List batch 2000-B*
+    """)
     
     # Main search input
     query = st.text_input(
-        "Ask your question in plain English:",
-        placeholder="Who lives in Quezon City? / I need a doctor / Who plays tennis? / Show me batch 95-S...",
-        key="natural_search",
-        help="Examples: 'Who lives in Makati', 'I need a lawyer', 'Who plays basketball', 'Anyone into photography', 'Show me batch 95-S'"
+        "🔍 Search or ask your question:",
+        placeholder="Type anything: names, 'Who lives in Makati', 'I need a lawyer', 'Who plays tennis'...",
+        help="Search by name, location, profession, interests, batch, or ask natural language questions"
     )
     
+    # Search options in a compact row
+    col1, col2, col3 = st.columns([2, 1, 1])
+    with col2:
+        include_inactive = st.checkbox("Include inactive members")
+    with col3:
+        if st.button("🔄 Clear"):
+            st.rerun()
+    
     if query:
-        with st.spinner("Understanding your question..."):
+        with st.spinner("Searching..."):
             try:
-                results = st.session_state.query_processor.search_natural_language(query)
-                display_enhanced_results(results, query)
+                # Smart search - try different methods based on query
+                results = smart_search(query, include_inactive)
+                display_search_results(results, query)
+                
             except Exception as e:
                 st.error(f"Search error: {e}")
-                st.info("💡 Try rephrasing your question or use the detailed search below.")
+                st.info("💡 Try a different search term or check your spelling.")
+
+def smart_search(query, include_inactive=False):
+    """Smart search that tries different search methods."""
+    results = []
     
-    st.divider()
+    try:
+        # Try enhanced natural language search first
+        if hasattr(st.session_state.query_processor, 'search_natural_language'):
+            results = st.session_state.query_processor.search_natural_language(query)
+        else:
+            # Fallback to basic search methods
+            
+            # Try as name search
+            name_results = st.session_state.db_manager.search_members({'name': query})
+            if name_results:
+                results = format_basic_results(name_results, 'name_search')
+            
+            # If no name results, try as profession
+            if not results:
+                prof_results = st.session_state.db_manager.search_members({'profession': query})
+                if prof_results:
+                    results = format_basic_results(prof_results, 'profession_search')
+            
+            # If still no results, try as location
+            if not results:
+                loc_results = st.session_state.db_manager.search_members({'location': query})
+                if loc_results:
+                    results = format_basic_results(loc_results, 'location_search')
+            
+            # Last resort: try all fields
+            if not results:
+                all_results = st.session_state.db_manager.search_members({
+                    'name': query,
+                    'profession': query,
+                    'location': query
+                })
+                if all_results:
+                    results = format_basic_results(all_results, 'general_search')
     
-    # Detailed search tabs for advanced users
-    with st.expander("🔧 Advanced Search Options", expanded=False):
-        search_tab, directory_tab = st.tabs(["🔍 Professional Services", "📋 Member Directory"])
+    except Exception as e:
+        st.error(f"Search processing error: {e}")
+        results = []
+    
+    return results
+
+def format_basic_results(members, search_type):
+    """Format basic search results."""
+    formatted_results = []
+    for member in members:
+        formatted_result = {
+            'id': member['id'],
+            'name': member.get('full_name', 'N/A'),
+            'email': member.get('primary_email', 'N/A'),
+            'mobile': member.get('mobile_phone', 'N/A'),
+            'profession': member.get('current_profession', 'N/A'),
+            'company': member.get('current_company', 'N/A'),
+            'batch': member.get('batch_normalized', 'N/A'),
+            'chapter': member.get('school_chapter_normalized', 'N/A'),
+            'home_location': member.get('home_address_city_normalized', 'N/A'),
+            'work_location': member.get('office_address_city_normalized', 'N/A'),
+            'home_address': member.get('home_address_full', 'N/A'),
+            'work_address': member.get('office_address_full', 'N/A'),
+            'interests': member.get('interests_hobbies', 'N/A'),
+            'sports': member.get('sports_activities', 'N/A'),
+            'confidence_score': member.get('confidence_score', 0),
+            'query_type': search_type,
+            'match_reasons': [f"Matched in {search_type.replace('_', ' ')}"]
+        }
+        formatted_results.append(formatted_result)
+    
+    return formatted_results
+
+def display_search_results(results, query):
+    """Display search results in a unified format."""
+    if not results:
+        st.warning("No matches found for your search.")
+        st.info("💡 Try different keywords, check spelling, or search for something more general.")
         
-        with search_tab:
-            st.subheader("Find Professional Help")
-            st.markdown("**Examples**: *I need a family lawyer in Bulacan*, *Do we have a cardiologist at Heart Center?*")
+        # Suggest some example searches
+        st.markdown("**Try these examples:**")
+        examples = [
+            "Juan Dela Cruz",
+            "Who lives in Makati",
+            "I need a lawyer", 
+            "Show me batch 95-S",
+            "Who plays basketball"
+        ]
+        
+        cols = st.columns(len(examples))
+        for i, example in enumerate(examples):
+            with cols[i]:
+                if st.button(f"🔍 {example}", key=f"example_{i}"):
+                    st.rerun()
+        return
+    
+    # Display results count and type
+    result_type = results[0].get('query_type', 'search') if results else 'search'
+    st.success(f"Found {len(results)} result(s)")
+    
+    # Display results
+    for i, result in enumerate(results):
+        # Create informative title
+        title_parts = []
+        if result.get('name') and result['name'] != 'N/A':
+            title_parts.append(f"👤 {result['name']}")
+        if result.get('profession') and result['profession'] != 'N/A':
+            title_parts.append(f"💼 {result['profession']}")
+        if result.get('home_location') and result['home_location'] != 'N/A':
+            title_parts.append(f"📍 {result['home_location']}")
+        
+        title = " | ".join(title_parts) if title_parts else f"Member {i+1}"
+        
+        with st.expander(title, expanded=i < 5):  # Show first 5 expanded
+            col1, col2 = st.columns([3, 2])
             
-            # Search input
-            prof_query = st.text_input(
-                "What kind of professional help do you need?",
-                placeholder="I need a lawyer in Makati...",
-                key="prof_search"
-            )
+            with col1:
+                # Basic information
+                if result.get('name') and result['name'] != 'N/A':
+                    st.write(f"**👤 Name:** {result['name']}")
+                
+                if result.get('profession') and result['profession'] != 'N/A':
+                    st.write(f"**💼 Profession:** {result['profession']}")
+                
+                if result.get('company') and result['company'] != 'N/A':
+                    st.write(f"**🏢 Company:** {result['company']}")
+                
+                if result.get('batch') and result['batch'] != 'N/A':
+                    st.write(f"**🎓 Batch:** {result['batch']}")
+                
+                if result.get('chapter') and result['chapter'] != 'N/A':
+                    st.write(f"**🏫 Chapter:** {result['chapter']}")
+                
+                # Location information
+                locations = []
+                if result.get('home_location') and result['home_location'] != 'N/A':
+                    locations.append(f"🏠 {result['home_location']}")
+                if result.get('work_location') and result['work_location'] != 'N/A':
+                    locations.append(f"🏢 {result['work_location']}")
+                if locations:
+                    st.write(f"**📍 Location:** {' | '.join(locations)}")
+                
+                # Interests (if relevant)
+                if result.get('interests') and result['interests'] != 'N/A':
+                    st.write(f"**🎯 Interests:** {result['interests']}")
+                if result.get('sports') and result['sports'] != 'N/A':
+                    st.write(f"**⚽ Sports:** {result['sports']}")
+                
+                # Match reasons
+                if result.get('match_reasons'):
+                    st.write("**✨ Match reasons:**")
+                    for reason in result['match_reasons']:
+                        st.write(f"  • {reason}")
             
-            # Search options
-            col1, col2 = st.columns([3, 1])
             with col2:
-                urgency = st.selectbox("Urgency", ["Normal", "Urgent"], key="urgency")
-            
-            if prof_query:
-                with st.spinner("Searching for professionals..."):
-                    try:
-                        results = st.session_state.query_processor.search_professional_services(prof_query)
-                        display_professional_results(results, prof_query)
-                    except Exception as e:
-                        st.error(f"Search error: {e}")
-        
-        with directory_tab:
-            st.subheader("Member Directory Search")
-            st.markdown("Search by name, batch, chapter, or other criteria")
-            
-            # Directory search form
-            with st.form("directory_search"):
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    name_search = st.text_input("Name", placeholder="Juan Dela Cruz")
-                    batch_search = st.text_input("Batch", placeholder="95-S")
-                with col2:
-                    chapter_search = st.text_input("Chapter", placeholder="UP Diliman")
-                    profession_search = st.text_input("Profession", placeholder="Engineer")
-                with col3:
-                    location_search = st.text_input("Location", placeholder="Makati")
-                    
-                search_submitted = st.form_submit_button("🔍 Search Directory")
-        
-        if search_submitted:
-            search_params = {
-                'name': name_search if name_search else None,
-                'batch': batch_search if batch_search else None,
-                'chapter': chapter_search if chapter_search else None,
-                'profession': profession_search if profession_search else None,
-                'location': location_search if location_search else None
-            }
-            
-            # Remove None values
-            search_params = {k: v for k, v in search_params.items() if v}
-            
-            if search_params:
-                with st.spinner("Searching directory..."):
-                    try:
-                        results = st.session_state.db_manager.search_members(search_params)
-                        display_directory_results(results)
-                    except Exception as e:
-                        st.error(f"Search error: {e}")
-            else:
-                st.warning("Please enter at least one search criteria.")
+                # Contact information
+                st.write("**📞 Contact**")
+                if result.get('email') and result['email'] != 'N/A':
+                    st.write(f"📧 {result['email']}")
+                if result.get('mobile') and result['mobile'] != 'N/A':
+                    st.write(f"📱 {result['mobile']}")
+                
+                # Additional details in expandable sections
+                if result.get('home_address') and result['home_address'] != 'N/A':
+                    with st.expander("🏠 Home Address"):
+                        st.write(result['home_address'])
+                
+                if result.get('work_address') and result['work_address'] != 'N/A':
+                    with st.expander("🏢 Work Address"):
+                        st.write(result['work_address'])
 
 def display_enhanced_results(results, query):
     """Display enhanced search results with better formatting."""
