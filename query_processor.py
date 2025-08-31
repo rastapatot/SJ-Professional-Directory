@@ -307,10 +307,16 @@ class QueryProcessor:
         if name_match:
             search_params['name'] = name_match.group(1).strip()
         
-        # Extract profession
-        profession = self._extract_profession(query_lower)
-        if profession:
-            search_params['profession'] = profession
+        # Extract company name
+        company = self._extract_company(query_lower)
+        if company:
+            search_params['company'] = company
+        
+        # Extract profession (only if no company found to avoid conflicts)
+        if not company:
+            profession = self._extract_profession(query_lower)
+            if profession:
+                search_params['profession'] = profession
         
         # Extract location
         location = self._extract_location(query_lower)
@@ -598,6 +604,27 @@ class QueryProcessor:
             for synonym in synonyms:
                 if synonym in query:
                     return profession
+        
+        return None
+    
+    def _extract_company(self, query: str) -> Optional[str]:
+        """Extract company/organization from query text."""
+        # Company-related patterns
+        company_patterns = [
+            r'(?:connected to|works at|from|at) ([A-Z][a-zA-Z\s]+)',
+            r'(?:company|organization|office) (?:of |called )?([A-Z][a-zA-Z\s]+)',
+            r'(?:deped|doh|dost|dict|dilg|dof|dswd|denr|da|dtr|dtwd)',  # Government agencies
+            r'(?:abs[-\s]?cbn|gma|tv5|pnp|afp|bsp|bpi|bdo|metrobank)',  # Major companies
+        ]
+        
+        for pattern in company_patterns:
+            match = re.search(pattern, query, re.IGNORECASE)
+            if match:
+                if len(match.groups()) > 0:
+                    return match.group(1).strip()
+                else:
+                    # For acronym patterns, return the matched text
+                    return match.group(0).upper()
         
         return None
     

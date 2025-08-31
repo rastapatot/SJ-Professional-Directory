@@ -190,6 +190,14 @@ class DatabaseManager:
                 where_clauses.append("school_chapter_normalized LIKE ?")
                 params.append(f"%{query_params['chapter'].lower()}%")
             
+            if query_params.get('company'):
+                where_clauses.append("""
+                    (current_company LIKE ?
+                     OR current_company_normalized LIKE ?)
+                """)
+                comp = f"%{query_params['company'].lower()}%"
+                params.extend([comp, comp])
+            
             if query_params.get('email'):
                 where_clauses.append("(primary_email = ? OR secondary_email = ?)")
                 params.extend([query_params['email'], query_params['email']])
