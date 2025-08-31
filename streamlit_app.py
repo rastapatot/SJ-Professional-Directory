@@ -64,6 +64,7 @@ def check_database():
 
 def main_search_interface():
     """Unified search interface."""
+    st.info("🔍 DEBUG: main_search_interface() called")
     st.title("🏢 SJ Professional Directory")
     st.markdown("*Your intelligent fraternity directory*")
     
@@ -84,6 +85,8 @@ def main_search_interface():
         placeholder="Type anything: names, 'Who lives in Makati', 'I need a lawyer', 'Who plays tennis'...",
         help="Search by name, location, profession, interests, batch, or ask natural language questions"
     )
+    
+    st.info(f"🔍 DEBUG: Text input value: '{query}' (length: {len(query) if query else 0})")
     
     # Search options in a compact row
     col1, col2, col3 = st.columns([2, 1, 1])
