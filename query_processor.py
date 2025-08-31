@@ -97,6 +97,7 @@ class QueryProcessor:
         interest_patterns = [
             r'(?:who|anyone) (?:likes?|enjoys?|plays?) (.+)',
             r'(?:find|show) (?:me )?(?:people|members) (?:who )?(?:like|enjoy|play) (.+)',
+            r'(?:who|anyone) (?:can help|knows about|has experience with) (?:me )?(?:with |buy |sell |find )?(.+)',
             r'(?:interested in|into) (.+)',
             r'hobbies? (?:include?|are?) (.+)',
             r'sports? (.+)'
@@ -214,6 +215,24 @@ class QueryProcessor:
         # Execute search
         results = self.db.search_members(search_params)
         
+        # If no results with full phrase, try individual words
+        if not results and len(interest.split()) > 1:
+            words = interest.split()
+            for word in words:
+                if len(word) > 3:  # Only try significant words
+                    word_params = {'interests': word}
+                    word_results = self.db.search_members(word_params)
+                    results.extend(word_results)
+            
+            # Remove duplicates while preserving order
+            seen_ids = set()
+            unique_results = []
+            for result in results:
+                if result['id'] not in seen_ids:
+                    seen_ids.add(result['id'])
+                    unique_results.append(result)
+            results = unique_results
+        
         # Format results with interest context
         formatted_results = []
         for member in results:
@@ -242,8 +261,8 @@ class QueryProcessor:
         """Generate reasons why a member matches an interest search."""
         reasons = []
         
-        interests = member.get('interests_hobbies', '').lower()
-        sports = member.get('sports_activities', '').lower()
+        interests = (member.get('interests_hobbies') or '').lower()
+        sports = (member.get('sports_activities') or '').lower()
         search_interest_lower = search_interest.lower()
         
         if search_interest_lower in interests:
