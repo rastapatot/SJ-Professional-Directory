@@ -11,11 +11,196 @@ import time
 
 # Configure page
 st.set_page_config(
-    page_title="SJ Professional Directory",
-    page_icon="🏢",
+    page_title="Cyrill 1.0 - SJ Assistant",
+    page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Dark mode CSS with vibrant colors
+st.markdown("""
+<style>
+    /* Main background */
+    .stApp {
+        background-color: #0a0a0a;
+        color: #ffffff;
+    }
+    
+    /* Sidebar - Fixed readability */
+    .css-1d391kg, .css-1cypcdb, .css-1d391kg .stMarkdown, section[data-testid="stSidebar"] {
+        background-color: #1a1a2e !important;
+        color: #ffffff !important;
+    }
+    
+    /* Sidebar text and elements */
+    .css-1d391kg * {
+        color: #ffff00 !important;
+    }
+    
+    .css-1d391kg .stMarkdown p {
+        color: #ffff00 !important;
+    }
+    
+    /* Sidebar radio buttons */
+    .css-1d391kg .stRadio label {
+        color: #ffff00 !important;
+    }
+    
+    /* Sidebar titles and headers */
+    .css-1d391kg h1, .css-1d391kg h2, .css-1d391kg h3 {
+        color: #ffff00 !important;
+    }
+    
+    /* Text inputs */
+    .stTextInput > div > div > input {
+        background-color: #16213e;
+        color: #00ff88;
+        border: 2px solid #0f3460;
+        border-radius: 8px;
+        font-weight: bold;
+    }
+    
+    .stTextInput > div > div > input:focus {
+        border-color: #00ff88;
+        box-shadow: 0 0 15px rgba(0, 255, 136, 0.3);
+    }
+    
+    /* Buttons */
+    .stButton > button {
+        background: linear-gradient(45deg, #e94560, #f2cc8f);
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        font-weight: bold;
+        transition: all 0.3s ease;
+    }
+    
+    .stButton > button:hover {
+        background: linear-gradient(45deg, #f2cc8f, #e94560);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(233, 69, 96, 0.4);
+    }
+    
+    /* Primary buttons (different color) */
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(45deg, #00ff88, #00d4ff);
+    }
+    
+    .stButton > button[kind="primary"]:hover {
+        background: linear-gradient(45deg, #00d4ff, #00ff88);
+    }
+    
+    /* Metrics */
+    .metric-container, [data-testid="metric-container"] {
+        background: linear-gradient(135deg, #1a1a2e, #16213e);
+        padding: 1rem;
+        border-radius: 12px;
+        border: 1px solid #0f3460;
+        box-shadow: 0 4px 15px rgba(0, 212, 255, 0.1);
+    }
+    
+    /* Expanders */
+    .streamlit-expanderHeader {
+        background: linear-gradient(90deg, #16213e, #1a1a2e);
+        color: #ffffff;
+        border-radius: 8px;
+    }
+    
+    /* Success/Info/Warning boxes - More vibrant */
+    .stSuccess {
+        background: linear-gradient(135deg, #0d5016, #1a5a1a);
+        border: 2px solid #00ff88;
+        border-radius: 8px;
+        color: #ffffff;
+    }
+    
+    .stInfo {
+        background: linear-gradient(135deg, #0d1a50, #1a2a5a);
+        border: 2px solid #00d4ff;
+        border-radius: 8px;
+        color: #ffffff;
+    }
+    
+    .stWarning {
+        background: linear-gradient(135deg, #503d0d, #5a4a1a);
+        border: 2px solid #ffaa00;
+        border-radius: 8px;
+        color: #ffffff;
+    }
+    
+    .stError {
+        background: linear-gradient(135deg, #500d1a, #5a1a2a);
+        border: 2px solid #ff0055;
+        border-radius: 8px;
+        color: #ffffff;
+    }
+    
+    /* Radio buttons */
+    .stRadio > div {
+        background: linear-gradient(135deg, #1a1a2e, #16213e);
+        padding: 1rem;
+        border-radius: 12px;
+        border: 1px solid #0f3460;
+    }
+    
+    /* Selectbox */
+    .stSelectbox > div > div > select {
+        background-color: #16213e;
+        color: #00ff88;
+        border: 2px solid #0f3460;
+        border-radius: 8px;
+    }
+    
+    /* Checkbox */
+    .stCheckbox {
+        color: #ffffff;
+    }
+    
+    /* Headers */
+    h1, h2, h3, h4, h5, h6 {
+        color: #ffffff;
+    }
+    
+    /* Section headers with glow */
+    h3 {
+        color: #00ff88;
+        text-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+    }
+    
+    /* Main title styling */
+    .main-title {
+        font-size: 2.8rem;
+        font-weight: bold;
+        background: linear-gradient(45deg, #00d4ff, #00ff88, #e94560);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        text-align: center;
+        margin-bottom: 1rem;
+        text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+    }
+    
+    /* Assistant subtitle */
+    .subtitle {
+        font-size: 1.3rem;
+        color: #f2cc8f;
+        text-align: center;
+        margin-bottom: 2rem;
+        font-style: italic;
+        text-shadow: 0 0 10px rgba(242, 204, 143, 0.3);
+    }
+    
+    /* Search section styling */
+    .search-section {
+        background: linear-gradient(135deg, #1a1a2e, #16213e);
+        padding: 2rem;
+        border-radius: 15px;
+        border: 1px solid #0f3460;
+        margin: 1rem 0;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # Import our modules
 from config import Config, DATABASE_PATH, RAW_FILES_DIR
@@ -64,8 +249,8 @@ def check_database():
 
 def main_search_interface():
     """Unified search interface."""
-    st.title("🏢 SJ Professional Directory")
-    st.markdown("*Your intelligent fraternity directory*")
+    st.markdown('<h1 class="main-title">🤖 Cyrill 1.0 the SJ assistant</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="subtitle">Your intelligent fraternity directory assistant</p>', unsafe_allow_html=True)
     
     # Single unified search box
     st.markdown("### 🔍 Search Members")
@@ -1475,15 +1660,15 @@ def main():
         return
     
     # Sidebar navigation
-    st.sidebar.title("🏢 SJ Directory")
+    st.sidebar.title("📊 DATA")
     
     page = st.sidebar.radio(
         "Navigation",
         ["🔍 Search", "⚙️ Admin", "ℹ️ About"]
     )
     
-    # Show stats in sidebar
-    sidebar_stats()
+    # Show stats in sidebar - removed for cleaner interface
+    # sidebar_stats()
     
     # Route to appropriate page
     if page == "🔍 Search":
