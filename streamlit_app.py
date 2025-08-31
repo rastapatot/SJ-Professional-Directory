@@ -935,22 +935,26 @@ def show_add_member_form():
             
             # Check if email already exists (only if email is provided)
             if new_email.strip():
-                # Debug: Show what we're searching for
-                st.info(f"🔍 Checking email: '{new_email.strip()}'")
+                # Create fresh database connection to avoid session state issues
+                import sqlite3
+                fresh_conn = sqlite3.connect(str(DATABASE_PATH))
                 
-                existing_members = st.session_state.db_manager.search_members({'email': new_email.strip()})
+                # Direct SQL query to check email existence
+                cursor = fresh_conn.execute('''
+                    SELECT id, full_name, primary_email, secondary_email
+                    FROM members 
+                    WHERE is_active = TRUE 
+                    AND is_duplicate = FALSE
+                    AND (primary_email = ? OR secondary_email = ?)
+                    LIMIT 1
+                ''', (new_email.strip(), new_email.strip()))
                 
-                # Debug: Show results
-                st.info(f"📊 Found {len(existing_members)} existing members with this email")
+                existing_record = cursor.fetchone()
+                fresh_conn.close()
                 
-                if existing_members:
-                    # Debug: Show the conflicting member details
-                    conflicting_member = existing_members[0]
-                    st.warning(f"⚠️ Conflicting member details: ID={conflicting_member.get('id')}, Name='{conflicting_member.get('full_name')}', Email='{conflicting_member.get('primary_email')}'")
-                    st.error(f"❌ Email {new_email} already exists for member: {existing_members[0]['full_name']}")
+                if existing_record:
+                    st.error(f"❌ Email {new_email} already exists for member: {existing_record[1]}")
                     return
-                else:
-                    st.success(f"✅ Email '{new_email.strip()}' is available")
             
             try:
                 # Prepare member data
